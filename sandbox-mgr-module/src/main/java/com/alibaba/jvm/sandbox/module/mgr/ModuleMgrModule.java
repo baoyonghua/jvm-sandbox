@@ -25,6 +25,9 @@ import static org.apache.commons.lang3.StringUtils.EMPTY;
 
 /**
  * 沙箱模块管理模块
+ * <p>
+ * 该模块提供了一个简单的命令行接口,可以通过HTTP请求的方式来管理沙箱模块
+ * </p>
  *
  * @author luanjia@taobao.com
  */
@@ -34,36 +37,18 @@ public class ModuleMgrModule implements Module {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
+    /**
+     * 沙箱模块管理器
+     */
     @Resource
     private ModuleManager moduleManager;
 
-    // 获取参数值
-    private String getParamWithDefault(final Map<String, String> param, final String name, final String defaultValue) {
-        final String valueFromReq = param.get(name);
-        return StringUtils.isBlank(valueFromReq)
-                ? defaultValue
-                : valueFromReq;
-    }
-
-    // 搜索模块
-    private Collection<Module> search(final String idsStringPattern) {
-        final Collection<Module> foundModules = new ArrayList<>();
-        for (Module module : moduleManager.list()) {
-            final Information moduleInfo = module.getClass().getAnnotation(Information.class);
-            if (!matching(moduleInfo.id(), idsStringPattern)) {
-                continue;
-            }
-            foundModules.add(module);
-        }
-        return foundModules;
-    }
-
-    // 输出信息到客户端
-    private void output(final PrintWriter writer, final String format, final Object... objectArray) {
-        writer.println(String.format(format, objectArray));
-    }
-
-    // @Http("/list")
+    /**
+     * 列出所有的沙箱模块信息
+     *
+     * @param writer
+     * @throws IOException
+     */
     @Command("list")
     public void list(final PrintWriter writer) throws IOException {
 
@@ -103,17 +88,31 @@ public class ModuleMgrModule implements Module {
         output(writer, "total=%s", total);
     }
 
-    // @Http("/flush")
+    /**
+     * 刷新沙箱模块
+     *
+     * @param param  参数集合
+     * @param writer 输出流
+     * @throws ModuleException
+     */
     @Command("flush")
     public void flush(final Map<String, String> param,
                       final PrintWriter writer) throws ModuleException {
+        // 从参数集合中获取是否强制刷新参数
         final String isForceString = getParamWithDefault(param, "force", EMPTY);
         final boolean isForce = BooleanUtils.toBoolean(isForceString);
+
+        // 进行模块的刷新, 由传入的参数来决定是否需要强制刷新
         moduleManager.flush(isForce);
         output(writer, "module flush finished, total=%s;", moduleManager.list().size());
     }
 
-    // @Http("/reset")
+    /**
+     * 重置所有已加载的沙箱模块
+     *
+     * @param writer
+     * @throws ModuleException
+     */
     @Command("reset")
     public void reset(final PrintWriter writer) throws ModuleException {
         moduleManager.reset();
@@ -223,6 +222,34 @@ public class ModuleMgrModule implements Module {
         output(writer, sb);
 
     }
+
+
+    // 获取参数值
+    private String getParamWithDefault(final Map<String, String> param, final String name, final String defaultValue) {
+        final String valueFromReq = param.get(name);
+        return StringUtils.isBlank(valueFromReq)
+                ? defaultValue
+                : valueFromReq;
+    }
+
+    // 搜索模块
+    private Collection<Module> search(final String idsStringPattern) {
+        final Collection<Module> foundModules = new ArrayList<>();
+        for (Module module : moduleManager.list()) {
+            final Information moduleInfo = module.getClass().getAnnotation(Information.class);
+            if (!matching(moduleInfo.id(), idsStringPattern)) {
+                continue;
+            }
+            foundModules.add(module);
+        }
+        return foundModules;
+    }
+
+    // 输出信息到客户端
+    private void output(final PrintWriter writer, final String format, final Object... objectArray) {
+        writer.println(String.format(format, objectArray));
+    }
+
 
     /**
      * get command list via a sandbox module's class

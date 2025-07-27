@@ -4,8 +4,11 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
 
 /**
- * 类行为，主要用来封装构造函数cinit/init/method
+ * 类行为
+ * <p>
+ * 主要用来封装构造函数cinit/init/method的相关属性<br>
  * 具体可以参考{@link Method}和{@link Constructor}
+ * </p>
  *
  * @author oldmanpushcart@gmail.com
  * @since {@code sandbox-api:1.0.10}

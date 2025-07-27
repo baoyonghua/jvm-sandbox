@@ -25,8 +25,12 @@ public class Spy {
      */
     public static volatile boolean isSpyThrowException = false;
 
-    private static final ConcurrentHashMap<String, SpyHandler> namespaceSpyHandlerMap
-            = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String /* namespace */, SpyHandler> namespaceSpyHandlerMap = new ConcurrentHashMap<>();
+
+    // 全局序列
+    private static final AtomicInteger sequenceRef = new AtomicInteger(1000);
+
+    private static final SelfCallBarrier selfCallBarrier = new SelfCallBarrier();
 
     /**
      * 判断间谍类是否已经完成初始化
@@ -64,9 +68,6 @@ public class Spy {
     }
 
 
-    // 全局序列
-    private static final AtomicInteger sequenceRef = new AtomicInteger(1000);
-
     /**
      * 生成全局唯一序列，
      * 在JVM-SANDBOX中允许多个命名空间的存在，不同的命名空间下listenerId/objectId将会被植入到同一份字节码中，
@@ -86,8 +87,6 @@ public class Spy {
             cause.printStackTrace();
         }
     }
-
-    private static final SelfCallBarrier selfCallBarrier = new SelfCallBarrier();
 
     public static void spyMethodOnCallBefore(final int lineNumber,
                                              final String owner,
@@ -143,6 +142,20 @@ public class Spy {
         }
     }
 
+    /**
+     * 在方法调用前
+     *
+     * @param argumentArray
+     * @param namespace
+     * @param listenerId
+     * @param targetClassLoaderObjectID
+     * @param javaClassName
+     * @param javaMethodName
+     * @param javaMethodDesc
+     * @param target
+     * @return
+     * @throws Throwable
+     */
     public static Ret spyMethodOnBefore(final Object[] argumentArray,
                                         final String namespace,
                                         final int listenerId,
@@ -268,6 +281,11 @@ public class Spy {
      */
     public static class SelfCallBarrier {
 
+        SelfCallBarrier() {
+            cleanAndInit();
+        }
+
+
         public static class Node {
             private final Thread thread;
             private final ReentrantLock lock;
@@ -309,10 +327,6 @@ public class Spy {
 
         final Node[] nodeArray = new Node[THREAD_LOCAL_ARRAY_LENGTH];
 
-        SelfCallBarrier() {
-            cleanAndInit();
-        }
-
         Node createTopNode() {
             return new Node(null, new ReentrantLock());
         }
@@ -329,6 +343,11 @@ public class Spy {
                     : val;
         }
 
+        /**
+         *
+         * @param thread
+         * @return
+         */
         boolean isEnter(Thread thread) {
             final Node top = nodeArray[abs(thread.hashCode()) % THREAD_LOCAL_ARRAY_LENGTH];
             Node node = top;

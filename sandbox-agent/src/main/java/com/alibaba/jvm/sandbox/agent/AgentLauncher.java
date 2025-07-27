@@ -33,14 +33,32 @@ public class AgentLauncher {
         return sandboxHome + File.separatorChar + "module";
     }
 
+    /**
+     * 获取sandbox-core.jar的路径
+     *
+     * @param sandboxHome
+     * @return
+     */
     private static String getSandboxCoreJarPath(String sandboxHome) {
         return sandboxHome + File.separatorChar + "lib" + File.separator + "sandbox-core.jar";
     }
 
+    /**
+     * 获取sandbox-spy.jar的路径
+     *
+     * @param sandboxHome
+     * @return
+     */
     private static String getSandboxSpyJarPath(String sandboxHome) {
         return sandboxHome + File.separatorChar + "lib" + File.separator + "sandbox-spy.jar";
     }
 
+    /**
+     * 获取sandbox.properties的路径
+     *
+     * @param sandboxHome
+     * @return
+     */
     private static String getSandboxPropertiesPath(String sandboxHome) {
         return getSandboxCfgPath(sandboxHome) + File.separator + "sandbox.properties";
     }
@@ -66,16 +84,20 @@ public class AgentLauncher {
     // 启动模式: attach方式加载
     private static final String LAUNCH_MODE_ATTACH = "attach";
 
-    // 启动默认
+    // 启动方式: agent | attach
     private static String LAUNCH_MODE;
 
     // agentmain上来的结果输出到文件${HOME}/.sandbox.token
     private static final String RESULT_FILE_PATH = System.getProperties().getProperty("user.home")
             + File.separator + ".sandbox.token";
 
-    // 全局持有ClassLoader用于隔离sandbox实现
-    private static final Map<String/*NAMESPACE*/, SandboxClassLoader> sandboxClassLoaderMap
-            = new ConcurrentHashMap<>();
+    /**
+     * 全局持有SandboxClassLoader用于隔离sandbox实现
+     * <p>
+     * 根据命名空间来隔离不同的jvm-sandbox实例，每一个命名空间对应一个SandboxClassLoader
+     * </p>
+     */
+    private static final Map<String/*NAMESPACE*/, SandboxClassLoader> sandboxClassLoaderMap = new ConcurrentHashMap<>();
 
     private static final String CLASS_OF_CORE_CONFIGURE = "com.alibaba.jvm.sandbox.core.CoreConfigure";
     private static final String CLASS_OF_PROXY_CORE_SERVER = "com.alibaba.jvm.sandbox.core.server.ProxyCoreServer";
@@ -83,6 +105,9 @@ public class AgentLauncher {
 
     /**
      * 启动加载
+     * <p>
+     * 当我们使用javaagent启动jvm-sandbox时，会调用这个方法
+     * </p>
      *
      * @param featureString 启动参数
      *                      [namespace,prop]
@@ -90,11 +115,15 @@ public class AgentLauncher {
      */
     public static void premain(String featureString, Instrumentation inst) {
         LAUNCH_MODE = LAUNCH_MODE_AGENT;
+        // 在当前JVM上安装（启动）jvm-sandbox
         install(toFeatureMap(featureString), inst);
     }
 
     /**
      * 动态加载
+     * <p>
+     * 当我们使用attach方式加载jvm-sandbox时，会调用这个方法
+     * </p>
      *
      * @param featureString 启动参数
      *                      [namespace,token,ip,port,prop]
@@ -103,11 +132,11 @@ public class AgentLauncher {
     public static void agentmain(String featureString, Instrumentation inst) {
         LAUNCH_MODE = LAUNCH_MODE_ATTACH;
         final Map<String, String> featureMap = toFeatureMap(featureString);
-        writeAttachResult(
-                getNamespace(featureMap),
-                getToken(featureMap),
-                install(featureMap, inst)
-        );
+        String namespace = getNamespace(featureMap);
+        String token = getToken(featureMap);
+        // 在当前JVM上安装（启动）jvm-sandbox
+        InetSocketAddress install = install(featureMap, inst);
+        writeAttachResult(namespace, token, install);
     }
 
     /**
@@ -147,18 +176,28 @@ public class AgentLauncher {
     }
 
 
-    private static synchronized ClassLoader loadOrDefineClassLoader(final String namespace,
-                                                                    final String coreJar) throws Throwable {
+    /**
+     * 加载或定义一个SandboxClassLoader
+     *
+     * @param namespace
+     * @param coreJar
+     * @return
+     * @throws Throwable
+     */
+    private static synchronized ClassLoader loadOrDefineClassLoader(
+            final String namespace,
+            final String coreJar
+    ) throws Throwable {
 
         final SandboxClassLoader classLoader;
 
-        // 如果已经被启动则返回之前启动的ClassLoader
+        // 如果已经被启动则返回之前启动时创建的ClassLoader
         if (sandboxClassLoaderMap.containsKey(namespace)
                 && null != sandboxClassLoaderMap.get(namespace)) {
             classLoader = sandboxClassLoaderMap.get(namespace);
         }
 
-        // 如果未启动则重新加载
+        // 如果未启动则重新加载ClassLoader
         else {
             classLoader = new SandboxClassLoader(namespace, coreJar);
             sandboxClassLoaderMap.put(namespace, classLoader);
@@ -197,48 +236,48 @@ public class AgentLauncher {
      * @param inst       inst
      * @return 服务器IP:PORT
      */
-    private static synchronized InetSocketAddress install(final Map<String, String> featureMap,
-                                                          final Instrumentation inst) {
-
+    private static synchronized InetSocketAddress install(final Map<String, String> featureMap, final Instrumentation inst) {
+        // 从启动参数中获取命名空间
         final String namespace = getNamespace(featureMap);
+        // 从启动参数中获取沙箱容器配置
         final String propertiesFilePath = getPropertiesFilePath(featureMap);
+        // 将启动参数中的[K,V]对转换为字符串, 用于后续根据此字符串来创建CoreConfigure
         final String coreFeatureString = toFeatureString(featureMap);
 
         try {
             final String home = getSandboxHome(featureMap);
-            // 将Spy注入到BootstrapClassLoader
+            // 将Spy注入到BootstrapClassLoader，也就是说通过启动类加载器去加载sandbox-spy.jar中的相关类
+            // 在这里会将sandbox-spy.jar添加到BootstrapClassLoader的搜索路径中，
+            // 当BootstrapClassLoader类加载器搜索类失败时，会尝试去搜索给定的Jar文件
             inst.appendToBootstrapClassLoaderSearch(new JarFile(new File(
-                    getSandboxSpyJarPath(home)
                     // SANDBOX_SPY_JAR_PATH
+                    getSandboxSpyJarPath(home)
             )));
 
-            // 构造自定义的类加载器，尽量减少Sandbox对现有工程的侵蚀
+            // 构造自定义的类加载器SandboxClassLoader，尽量减少Sandbox对现有工程的侵蚀
+            // 这里的SandboxClassLoader类加载器会加载sandbox-core.jar中的类
             final ClassLoader sandboxClassLoader = loadOrDefineClassLoader(
                     namespace,
-                    getSandboxCoreJarPath(home)
                     // SANDBOX_CORE_JAR_PATH
+                    getSandboxCoreJarPath(home)
             );
 
-            // CoreConfigure类定义
+            // 创建CoreConfigure实例，该类用于承载沙箱容器的配置信息
             final Class<?> classOfConfigure = sandboxClassLoader.loadClass(CLASS_OF_CORE_CONFIGURE);
-
-            // 反序列化成CoreConfigure类实例
             final Object objectOfCoreConfigure = classOfConfigure.getMethod("toConfigure", String.class, String.class)
                     .invoke(null, coreFeatureString, propertiesFilePath);
 
-            // CoreServer类定义
+            // 创建CoreServer类实例(内核服务器，具体实现是ProxyCoreServer，不过它的底层是交给JettyCoreServer来实现的)，
+            // 通过它来启动一个Http服务<Jetty>，来与用户进行交互
+            // 具体的用于处理用户HTTP请求的类是：ModuleHttpServlet
             final Class<?> classOfProxyServer = sandboxClassLoader.loadClass(CLASS_OF_PROXY_CORE_SERVER);
-
-            // 获取CoreServer单例
             final Object objectOfProxyServer = classOfProxyServer
                     .getMethod("getInstance")
                     .invoke(null);
 
             // CoreServer.isBind()
             final boolean isBind = (Boolean) classOfProxyServer.getMethod("isBind").invoke(objectOfProxyServer);
-
-
-            // 如果未绑定,则需要绑定一个地址
+            // 如果未绑定,则需要绑定一个地址以启动沙箱容器
             if (!isBind) {
                 try {
                     classOfProxyServer
@@ -343,14 +382,14 @@ public class AgentLauncher {
         return OS.contains("win");
     }
 
-    // 获取主目录
+    // 获取Sandbox主目录
     private static String getSandboxHome(final Map<String, String> featureMap) {
-        String home =  getDefault(featureMap, KEY_SANDBOX_HOME, DEFAULT_SANDBOX_HOME);
-        if( isWindows() ){
+        String home = getDefault(featureMap, KEY_SANDBOX_HOME, DEFAULT_SANDBOX_HOME);
+        if (isWindows()) {
             Matcher m = Pattern.compile("(?i)^[/\\\\]([a-z])[/\\\\]").matcher(home);
-            if( m.find() ){
+            if (m.find()) {
                 home = m.replaceFirst("$1:/");
-            }            
+            }
         }
         return home;
     }

@@ -312,6 +312,9 @@ public class EventWatchBuilder {
         REGEX
     }
 
+    /**
+     * 事件观察者
+     */
     private final ModuleEventWatcher moduleEventWatcher;
     private final PatternType patternType;
     private final List<BuildingForClass> bfClasses = new ArrayList<>();

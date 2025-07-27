@@ -16,6 +16,9 @@ import java.util.*;
 
 /**
  * 内核启动配置
+ * <p>
+ * 在启动时会根据给定的配置信息来初始化内核的配置，
+ * </p>
  * Created by luanjia@taobao.com on 16/10/2.
  */
 public class CoreConfigure {
@@ -63,7 +66,7 @@ public class CoreConfigure {
     private Map<String, String> toPropertiesMap(String propertiesFilePath) {
         final Map<String, String> propertiesMap = new LinkedHashMap<>();
 
-        if(null == propertiesFilePath) {
+        if (null == propertiesFilePath) {
             return propertiesMap;
         }
 
@@ -112,10 +115,9 @@ public class CoreConfigure {
             }
 
             // 如果是受保护KEY，只有在featureMap中为空值时才能合并入
-            else if(ArrayUtils.contains(PROTECT_KEY_ARRAY, propertiesEntry.getKey())) {
+            else if (ArrayUtils.contains(PROTECT_KEY_ARRAY, propertiesEntry.getKey())) {
                 mergeMap.computeIfAbsent(propertiesEntry.getKey(), k -> propertiesEntry.getValue());
             }
-
 
 
             // 其他情况一律以propertiesMap为准
@@ -193,7 +195,7 @@ public class CoreConfigure {
     }
 
     /**
-     * 获取用户模块加载文件/目录(集合)
+     * 获取用户模块下的所有jar文件
      *
      * @return 用户模块加载文件/目录(集合)
      */
@@ -203,9 +205,11 @@ public class CoreConfigure {
         for (final String path : getUserModuleLibPaths()) {
             final File fileOfPath = new File(path);
             if (fileOfPath.isDirectory()) {
+                // 如果是目录的话, 则递归查找目录下的所有jar文件
                 foundModuleJarFiles.addAll(FileUtils.listFiles(new File(path), new String[]{"jar"}, false));
             } else {
                 if (StringUtils.endsWithIgnoreCase(fileOfPath.getPath(), ".jar")) {
+                    // 如果是jar文件的话, 则直接添加到集合中
                     foundModuleJarFiles.add(fileOfPath);
                 }
             }
@@ -272,8 +276,7 @@ public class CoreConfigure {
     public Information.Mode getLaunchMode() {
         if (isLaunchByAgentMode()) {
             return Information.Mode.AGENT;
-        }
-        else if (isLaunchByAttachMode()) {
+        } else if (isLaunchByAttachMode()) {
             return Information.Mode.ATTACH;
         }
         return Information.Mode.ATTACH;
@@ -343,6 +346,7 @@ public class CoreConfigure {
     /**
      * 设置是否支持观察native方法，
      * 这个值不期望后续被改变，所以设置为default的访问类型
+     *
      * @param isNativeSupported 是否支持观察native方法
      */
     void setNativeSupported(boolean isNativeSupported) {
@@ -355,6 +359,7 @@ public class CoreConfigure {
 
     /**
      * 是否支持观察native方法
+     *
      * @return TRUE | FALSE
      */
     public boolean isNativeSupported() {

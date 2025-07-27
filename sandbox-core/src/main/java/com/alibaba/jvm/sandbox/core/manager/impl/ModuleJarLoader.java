@@ -32,10 +32,19 @@ class ModuleJarLoader {
     }
 
 
-    private boolean loadingModules(final ModuleJarClassLoader moduleClassLoader,
-                                   final ModuleLoadCallback mCb) {
-
+    /**
+     * 加载模块Jar文件中的模块实例
+     *
+     * @param moduleClassLoader 负责加载模块的ClassLoader，同一个jar包下的模块都使用该类加载器进行加载
+     * @param mCb               模块加载回调
+     * @return 是否成功完成加载
+     */
+    private boolean loadingModules(
+            final ModuleJarClassLoader moduleClassLoader,
+            final ModuleLoadCallback mCb
+    ) {
         final Set<String> loadedModuleUniqueIds = new LinkedHashSet<>();
+        // 通过SPI来获取该jar包下的所有Module
         final ServiceLoader<Module> moduleServiceLoader = ServiceLoader.load(Module.class, moduleClassLoader);
         final Iterator<Module> moduleIt = moduleServiceLoader.iterator();
         while (moduleIt.hasNext()) {
@@ -50,7 +59,7 @@ class ModuleJarLoader {
 
             final Class<?> classOfModule = module.getClass();
 
-            // 判断模块是否实现了@Information标记
+            // 判断模块是否标注了@Information标记，如果标注了则根据该注解中的信息来进行进一步的校验，否则模块将加载失败
             if (!classOfModule.isAnnotationPresent(Information.class)) {
                 logger.warn("loading module instance failed: not implements @Information, will be ignored. class={};module-jar={};",
                         classOfModule,
@@ -85,6 +94,7 @@ class ModuleJarLoader {
 
             try {
                 if (null != mCb) {
+                    // 回调模块生命周期方法
                     mCb.onLoad(uniqueId, classOfModule, module, moduleJarFile, moduleClassLoader);
                 }
             } catch (Throwable cause) {
@@ -112,18 +122,18 @@ class ModuleJarLoader {
 
 
     void load(final ModuleLoadCallback mCb) throws IOException {
-
-
         boolean hasModuleLoadedSuccessFlag = false;
         ModuleJarClassLoader moduleJarClassLoader = null;
         logger.info("prepare loading module-jar={};", moduleJarFile);
         try {
+            // 通过ModuleJarClassLoader加载模块Jar文件
             moduleJarClassLoader = new ModuleJarClassLoader(moduleJarFile);
 
             final ClassLoader preTCL = Thread.currentThread().getContextClassLoader();
             Thread.currentThread().setContextClassLoader(moduleJarClassLoader);
 
             try {
+                // 加载模块Jar文件中的模块实例，同时完成回调
                 hasModuleLoadedSuccessFlag = loadingModules(moduleJarClassLoader, mCb);
             } finally {
                 Thread.currentThread().setContextClassLoader(preTCL);

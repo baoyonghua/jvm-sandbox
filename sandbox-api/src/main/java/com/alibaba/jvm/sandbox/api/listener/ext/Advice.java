@@ -10,7 +10,11 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * 行为通知
+ * 行为通知Advice
+ * <p>
+ * Advice是一个核心类，它与行为{@link Behavior}息息相关, 一个行为就对应一个Advice。<br>
+ * 通知代表着一个行为{@link Behavior}的整个执行过程，随着行为的不断执行, Advice的状态会不断变化以及它的属性也会不断的进行填充
+ * </p>
  *
  * @author luanjia@taobao.com
  * @since {@code sandbox-api:1.0.10}
@@ -21,18 +25,80 @@ public class Advice implements Attachment {
     private final int invokeId;
 
     private final ClassLoader loader;
+
+    /**
+     * 触发事件的行为(懒加载)
+     * <p>
+     * 一般而言能触发事件的行为是：普通方法和构造函数
+     */
     private final LazyGet<Behavior> behaviorLazyGet;
+
+    /**
+     * 触发事件的行为入参信息
+     * <p>
+     * 注意：如果是构造函数，入参为构造函数的参数；如果是普通方法，入参为方法的参数
+     * </p>
+     */
     private final Object[] parameterArray;
+
+    /**
+     * 触发事件所归属的对象实例
+     * <p>
+     * 注意：如果是构造函数，入参为当前对象的实例；如果是普通方法，入参为方法的调用者
+     * </p>
+     */
     private final Object target;
 
+    /**
+     * 行为返回的对象
+     * <p>
+     * 如果是构造函数，返回当前对象的实例；
+     * 如果是普通方法，返回方法的返回值
+     * </p>
+     */
     private Object returnObj;
+
+    /**
+     * 行为抛出的异常
+     * <p>
+     * 如果是构造函数，返回null；
+     * 如果是普通方法，返回方法抛出的异常
+     * </p>
+     */
     private Throwable throwable;
 
+    /**
+     * 附件
+     * <p>
+     * 通过{@link #attach(Object)}方法添加的附件
+     * </p>
+     */
     private Object attachment;
+
+    /**
+     * 标记集合，用于对Advice添加标记
+     * <p>
+     * 通过{@link #mark(String)}方法添加的标记
+     * </p>
+     */
     private final Set<String> marks = new HashSet<>();
 
+    /**
+     * 用于级联顶层调用的通知
+     */
     private Advice top = this;
+
+    /**
+     * 用于级联上一个调用的通知
+     */
     private Advice parent = this;
+
+    /**
+     * 当前通知的状态
+     * <li>当前通知是BEFORE状态时，表示行为还未执行；</li>
+     * <li>当前通知是RETURN状态时，表示行为已经执行完毕并返回了结果；</li>
+     * <li>当前通知是THROWS状态时，表示行为执行过程中抛出了异常。</li>
+     */
     private Event.Type state = Event.Type.BEFORE;
 
     /**

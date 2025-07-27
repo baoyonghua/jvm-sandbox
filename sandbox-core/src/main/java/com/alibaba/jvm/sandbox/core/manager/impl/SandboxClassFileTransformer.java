@@ -22,6 +22,9 @@ import static com.alibaba.jvm.sandbox.core.util.matcher.structure.ClassStructure
 
 /**
  * 沙箱类形变器
+ * <p>
+ * 该类形变器用于增强类的字节码
+ * </p>
  *
  * @author luanjia@taobao.com
  */
@@ -35,16 +38,49 @@ public class SandboxClassFileTransformer implements ClassFileTransformer {
     public static final String SANDBOX_SPECIAL_PREFIX = "$$SANDBOX$";
 
     private final int watchId;
+
     private final String uniqueId;
+
+    /**
+     * 匹配器
+     * <p>
+     * 该匹配器用于匹配类结构，判断是否符合增强条件
+     * </p>
+     */
     private final Matcher matcher;
+
+    /**
+     * 事件监听器
+     */
     private final EventListener eventListener;
+
+    /**
+     * 是否允许增强由BootstrapClassLoader加载的类
+     */
     private final boolean isEnableUnsafe;
+
+    /**
+     * 当前事件监听器可监听的事件类型数组
+     */
     private final Event.Type[] eventTypeArray;
 
     private final String namespace;
+
+    /**
+     * 事件监听器id
+     */
     private final int listenerId;
+
+    /**
+     * 增强类的统计器
+     */
     private final AffectStatistic affectStatistic = new AffectStatistic();
+
+    /**
+     * 是否支持对native方法进行增强
+     */
     private final boolean isNativeSupported;
+
     private final String nativePrefix;
 
     SandboxClassFileTransformer(final int watchId,
@@ -67,21 +103,24 @@ public class SandboxClassFileTransformer implements ClassFileTransformer {
         this.nativePrefix = String.format("%s$%s$%s", SANDBOX_SPECIAL_PREFIX, namespace, watchId);
     }
 
-    // 获取当前类结构
-    private ClassStructure getClassStructure(final ClassLoader loader,
-                                             final Class<?> classBeingRedefined,
-                                             final byte[] srcByteCodeArray) {
-        return null == classBeingRedefined
-                ? createClassStructure(srcByteCodeArray, loader)
-                : createClassStructure(classBeingRedefined);
-    }
-
+    /**
+     * 转换给定的类文件并返回新的替换类文件
+     *
+     * @param loader              将要被转换的类的类加载器，如果使用引导加载器，则可能为 {@code null}。
+     * @param internalClassName   Java 虚拟机规范中定义的完全限定类和接口名称的内部形式的类名称。例如， "java/util/List".
+     * @param classBeingRedefined 如果这是由redefine或retransform触发的，那么被redefined或retransformed的类；如果这是class load，则为 {@code null}。
+     * @param protectionDomain    the protection domain of the class being defined or redefined
+     * @param srcByteCodeArray    the input byte buffer in class file format - must not be modified
+     * @return
+     */
     @Override
-    public byte[] transform(final ClassLoader loader,
-                            final String internalClassName,
-                            final Class<?> classBeingRedefined,
-                            final ProtectionDomain protectionDomain,
-                            final byte[] srcByteCodeArray) {
+    public byte[] transform(
+            final ClassLoader loader,
+            final String internalClassName,
+            final Class<?> classBeingRedefined,
+            final ProtectionDomain protectionDomain,
+            final byte[] srcByteCodeArray
+    ) {
 
         SandboxProtector.instance.enterProtecting();
         try {
@@ -93,13 +132,12 @@ public class SandboxClassFileTransformer implements ClassFileTransformer {
             }
 
             // 如果未开启unsafe开关，是不允许增强来自BootStrapClassLoader的类
-            if (!isEnableUnsafe
-                    && null == loader) {
+            if (!isEnableUnsafe && null == loader) {
                 logger.debug("transform ignore {}, class from bootstrap but unsafe.enable=false.", internalClassName);
                 return null;
             }
 
-            // 匹配类是否符合要求，如果一个行为都没匹配上也不用继续了
+            // 匹配类是否符合要求，如果一个行为(方法)都没匹配上也不用继续了
             final MatchingResult result = new UnsupportedMatcher(loader, isEnableUnsafe, isNativeSupported)
                     .and(matcher)
                     .matching(getClassStructure(loader, classBeingRedefined, srcByteCodeArray));
@@ -131,16 +169,44 @@ public class SandboxClassFileTransformer implements ClassFileTransformer {
         }
     }
 
-    private byte[] _transform(final MatchingResult result,
-                              final ClassLoader loader,
-                              final String internalClassName,
-                              final byte[] srcByteCodeArray) {
+    /**
+     * 获取给定类的类结构信息
+     *
+     * @param loader
+     * @param classBeingRedefined
+     * @param srcByteCodeArray
+     * @return
+     */
+    private ClassStructure getClassStructure(
+            final ClassLoader loader,
+            final Class<?> classBeingRedefined,
+            final byte[] srcByteCodeArray) {
+        return null == classBeingRedefined
+                ? createClassStructure(srcByteCodeArray, loader)
+                : createClassStructure(classBeingRedefined);
+    }
+
+    /**
+     * 进行类增强
+     *
+     * @param result            匹配结果
+     * @param loader            类加载器
+     * @param internalClassName 内部类名
+     * @param srcByteCodeArray  源字节码数组
+     * @return 增强后的字节码数组，如果没有变化则返回null
+     */
+    private byte[] _transform(
+            final MatchingResult result,
+            final ClassLoader loader,
+            final String internalClassName,
+            final byte[] srcByteCodeArray
+    ) {
 
         // 匹配到的方法签名
         final Set<String> behaviorSignCodes = result.getBehaviorSignCodes();
 
-        // 开始进行类匹配
         try {
+            // 开始进行类的增强，会基于ASM完成对字节码的增强
             final byte[] toByteCodeArray = new EventEnhancer(nativePrefix).toByteCodeArray(
                     loader,
                     srcByteCodeArray,
@@ -154,7 +220,7 @@ public class SandboxClassFileTransformer implements ClassFileTransformer {
                 return null;
             }
 
-            // statistic affect
+            // 统计本次增强的影响范围(即：统计增强了哪些方法，以及哪个类被增强了)
             affectStatistic.statisticAffect(loader, internalClassName, behaviorSignCodes);
 
             logger.info("transform {} finished, by module={} in loader={}", internalClassName, uniqueId, loader);
@@ -223,6 +289,7 @@ public class SandboxClassFileTransformer implements ClassFileTransformer {
     /**
      * 获取本次增强的native方法前缀，
      * 根据JVM规范，每个ClassFileTransformer必须拥有自己的native方法前缀
+     *
      * @return native方法前缀
      */
     public String getNativePrefix() {

@@ -252,8 +252,7 @@ public class DefaultModuleEventWatcher implements ModuleEventWatcher {
             if (watcherId == sandboxClassFileTransformer.getWatchId()) {
 
                 // 冻结所有关联代码增强
-                EventListenerHandler.getSingleton()
-                        .frozen(sandboxClassFileTransformer.getListenerId());
+                EventListenerHandler.getSingleton().frozen(sandboxClassFileTransformer.getListenerId());
 
                 // 在JVM中移除掉命中的ClassFileTransformer
                 inst.removeTransformer(sandboxClassFileTransformer);

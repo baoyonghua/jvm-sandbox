@@ -1,7 +1,7 @@
 package com.alibaba.jvm.sandbox.api.filter;
 
 /**
- * 类名和方法名正则表达式匹配过滤器
+ * 基于正则表达式的类名和方法名的匹配过滤器
  *
  * @author luanjia@taobao.com
  */

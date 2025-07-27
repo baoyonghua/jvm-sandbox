@@ -14,10 +14,16 @@ import java.net.URL;
 @Stealth
 public class ProviderClassLoader extends RoutingURLClassLoader {
 
-    public ProviderClassLoader(final File providerJarFile,
-                               final ClassLoader sandboxClassLoader) throws IOException {
+    /**
+     *
+     * @param providerJarFile 服务提供库Jar文件
+     * @param sandboxClassLoader {@link SandboxClassLoader}
+     * @throws IOException
+     */
+    public ProviderClassLoader(final File providerJarFile, final ClassLoader sandboxClassLoader) throws IOException {
         super(
                 new URL[]{new URL("file:" + providerJarFile.getPath())},
+                // 定义路由规则:sandbox-api、sandbox-provider、javax.annotation.Resource等包下的类都由沙箱ClassLoader进行加载
                 new Routing(
                         sandboxClassLoader,
                         "^com\\.alibaba\\.jvm\\.sandbox\\.api\\..*$",

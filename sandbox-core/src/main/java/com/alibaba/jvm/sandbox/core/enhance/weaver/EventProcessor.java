@@ -18,17 +18,51 @@ class EventProcessor {
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     /**
+     * 事件监听器id
+     */
+    final int listenerId;
+
+    /**
+     * 事件监听器
+     */
+    final EventListener listener;
+
+    /**
+     * 事件监听器可监听的事件类型
+     */
+    final Event.Type[] eventTypes;
+
+
+    final ThreadLocal<Process> processRef = ThreadLocal.withInitial(Process::new);
+
+    /**
+     * 创建事件处理器
+     *
+     * @param listenerId 事件监听器id
+     * @param listener   事件监听器
+     * @param eventTypes 当前监听器可监听的事件类型
+     */
+    EventProcessor(final int listenerId,
+                   final EventListener listener,
+                   final Event.Type[] eventTypes) {
+
+        this.listenerId = listenerId;
+        this.eventTypes = eventTypes;
+        this.listener = isInterruptEventHandler(listener.getClass())
+                ? new InterruptedEventListenerImpl(listener)
+                : listener;
+    }
+
+    /**
      * 处理单元
      */
     class Process {
 
         // 事件工厂
-        private final SingleEventFactory eventFactory
-                = new SingleEventFactory();
+        private final SingleEventFactory eventFactory = new SingleEventFactory();
 
         // 调用堆栈
-        private final GaStack<Integer> stack
-                = new ThreadUnsafeGaStack<>();
+        private final GaStack<Integer> stack = new ThreadUnsafeGaStack<>();
 
         // 是否需要忽略整个调用过程
         private boolean isIgnoreProcess = false;
@@ -168,22 +202,6 @@ class EventProcessor {
             listener.onEvent(event);
         }
 
-    }
-
-    final int listenerId;
-    final EventListener listener;
-    final Event.Type[] eventTypes;
-    final ThreadLocal<Process> processRef = ThreadLocal.withInitial(Process::new);
-
-    EventProcessor(final int listenerId,
-                   final EventListener listener,
-                   final Event.Type[] eventTypes) {
-
-        this.listenerId = listenerId;
-        this.eventTypes = eventTypes;
-        this.listener = isInterruptEventHandler(listener.getClass())
-                ? new InterruptedEventListenerImpl(listener)
-                : listener;
     }
 
 

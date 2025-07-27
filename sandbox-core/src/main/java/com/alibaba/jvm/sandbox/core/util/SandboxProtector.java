@@ -64,7 +64,7 @@ public class SandboxProtector {
     public boolean isInProtecting() {
         // fix for #384
         final boolean res = isInProtectingThreadLocal.get().get() > 0;
-        if(!res) {
+        if (!res) {
             isInProtectingThreadLocal.remove();
         }
         return res;
@@ -81,22 +81,30 @@ public class SandboxProtector {
     @SuppressWarnings("unchecked")
     public <T> T protectProxy(final Class<T> protectTargetInterface,
                               final T protectTarget) {
-        return (T) Proxy.newProxyInstance(getClass().getClassLoader(), new Class<?>[]{protectTargetInterface}, (proxy, method, args) -> {
-            final int enterReferenceCount = enterProtecting();
-            try {
-                return method.invoke(protectTarget, args);
-            } finally {
-                final int exitReferenceCount = exitProtecting();
-                // assert enterReferenceCount == exitReferenceCount;
-                if (enterReferenceCount != exitReferenceCount) {
-                    logger.warn("thread:{} exit protecting with error!, expect:{} actual:{}",
-                            Thread.currentThread(),
-                            enterReferenceCount,
-                            exitReferenceCount
-                    );
-                }
-            }
-        });
+        // 创建一个JDK动态代理
+        return (T) Proxy.newProxyInstance(
+                // SandboxClassLoader
+                getClass().getClassLoader(),
+                new Class<?>[]{protectTargetInterface},
+                (proxy, method, args) -> {
+                    // 进入守护区域, 增加
+                    final int enterReferenceCount = enterProtecting();
+                    try {
+                        // 调用目标方法
+                        return method.invoke(protectTarget, args);
+                    } finally {
+                        // 退出守护区域
+                        final int exitReferenceCount = exitProtecting();
+                        // assert enterReferenceCount == exitReferenceCount;
+                        if (enterReferenceCount != exitReferenceCount) {
+                            logger.warn("thread:{} exit protecting with error!, expect:{} actual:{}",
+                                    Thread.currentThread(),
+                                    enterReferenceCount,
+                                    exitReferenceCount
+                            );
+                        }
+                    }
+                });
     }
 
 

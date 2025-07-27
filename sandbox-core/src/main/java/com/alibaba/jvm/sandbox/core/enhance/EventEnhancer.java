@@ -27,6 +27,15 @@ import static org.objectweb.asm.Opcodes.ASM7;
 public class EventEnhancer implements Enhancer {
 
     private static final Logger logger = LoggerFactory.getLogger(EventEnhancer.class);
+
+    /**
+     * 是否需要将增强的类字节码写入文件
+     * <p>
+     * 用于调试代码的时候使用
+     * </p>
+     */
+    private static final boolean isDumpClass = false;
+
     private final String nativePrefix;
 
     public EventEnhancer(String nativePrefix) {
@@ -61,7 +70,46 @@ public class EventEnhancer implements Enhancer {
         };
     }
 
-    private static final boolean isDumpClass = false;
+    /**
+     * 将源字节码数组转换为增强后的字节码数组
+     *
+     * @param targetClassLoader 目标类加载器
+     * @param byteCodeArray     源字节码数组
+     * @param signCodes         需要被增强的行为签名
+     * @param namespace         命名空间
+     * @param listenerId        需要埋入的监听器ID，当事件发生时，会通知对应的监听器
+     * @param eventTypeArray    需要进行埋入的事件类型，只有在事件类型数组中包含的事件类型，才会进行通知
+     * @return 增强后的字节码数组
+     */
+    @Override
+    public byte[] toByteCodeArray(
+            final ClassLoader targetClassLoader,
+            final byte[] byteCodeArray,
+            final Set<String> signCodes,
+            final String namespace,
+            final int listenerId,
+            final Event.Type[] eventTypeArray
+    ) {
+        final ClassReader cr = new ClassReader(byteCodeArray);
+        final ClassWriter cw = createClassWriter(targetClassLoader, cr);
+        // 获取目标类加载器的Object ID
+        final int targetClassLoaderObjectID = ObjectIDs.instance.identity(targetClassLoader);
+
+        // 通过ASM对字节码进行增强，以便于在合适的位置进行插桩
+        cr.accept(
+                new EventWeaver(ASM7, cw, namespace, listenerId,
+                        targetClassLoaderObjectID,
+                        cr.getClassName(),
+                        signCodes,
+                        eventTypeArray,
+                        nativePrefix
+                ),
+                EXPAND_FRAMES
+        );
+        // 返回增强后字节码
+        return dumpClassIfNecessary(cr.getClassName(), cw.toByteArray());
+    }
+
 
     /*
      * dump class to file
@@ -90,30 +138,6 @@ public class EventEnhancer implements Enhancer {
         }
 
         return data;
-    }
-
-    @Override
-    public byte[] toByteCodeArray(final ClassLoader targetClassLoader,
-                                  final byte[] byteCodeArray,
-                                  final Set<String> signCodes,
-                                  final String namespace,
-                                  final int listenerId,
-                                  final Event.Type[] eventTypeArray) {
-        // 返回增强后字节码
-        final ClassReader cr = new ClassReader(byteCodeArray);
-        final ClassWriter cw = createClassWriter(targetClassLoader, cr);
-        final int targetClassLoaderObjectID = ObjectIDs.instance.identity(targetClassLoader);
-        cr.accept(
-                new EventWeaver(ASM7, cw, namespace, listenerId,
-                        targetClassLoaderObjectID,
-                        cr.getClassName(),
-                        signCodes,
-                        eventTypeArray,
-                        nativePrefix
-                ),
-                EXPAND_FRAMES
-        );
-        return dumpClassIfNecessary(cr.getClassName(), cw.toByteArray());
     }
 
 }

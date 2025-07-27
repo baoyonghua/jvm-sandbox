@@ -20,6 +20,10 @@ import java.util.Enumeration;
 public class RoutingURLClassLoader extends URLClassLoader {
 
     private static final Logger logger = LoggerFactory.getLogger(RoutingURLClassLoader.class);
+
+    /**
+     * 路由规则
+     */
     private final Routing[] routingArray;
 
     public RoutingURLClassLoader(final URL[] urls,
@@ -59,6 +63,7 @@ public class RoutingURLClassLoader extends URLClassLoader {
                 }
                 final ClassLoader routingClassLoader = routing.classLoader;
                 try {
+                    // 如果命中路由规则,则优先通过路由表中的ClassLoader完成类加载
                     return routingClassLoader.loadClass(javaClassName);
                 } catch (Exception cause) {
                     // 如果在当前routingClassLoader中找不到应该优先加载的类(应该不可能，但不排除有就是故意命名成同名类)
@@ -91,7 +96,17 @@ public class RoutingURLClassLoader extends URLClassLoader {
      */
     public static class Routing {
 
+        /**
+         * 路由匹配规则表达式集合
+         */
         private final Collection<String/*REGEX*/> regexExpresses = new ArrayList<>();
+
+        /**
+         * 类加载
+         * <p>
+         * 当参与匹配的Java类名命中路由匹配规则时,将会通过此ClassLoader完成对应的加载行为
+         * </p>
+         */
         private final ClassLoader classLoader;
 
         /**
@@ -109,7 +124,9 @@ public class RoutingURLClassLoader extends URLClassLoader {
 
         /**
          * 当前参与匹配的Java类名是否命中路由匹配规则
-         * 命中匹配规则的类加载,将会从此ClassLoader中完成对应的加载行为
+         * <p>
+         * 命中匹配规则的类,将会通过{@link RoutingURLClassLoader}完成对应的加载行为
+         * </p>
          *
          * @param javaClassName 参与匹配的Java类名
          * @return true:命中;false:不命中;

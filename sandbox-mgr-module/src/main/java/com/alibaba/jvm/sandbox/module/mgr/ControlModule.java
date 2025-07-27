@@ -13,6 +13,15 @@ import javax.annotation.Resource;
 import java.io.PrintWriter;
 import java.lang.reflect.InvocationTargetException;
 
+/**
+ * 控制模块
+ *
+ * <p>
+ * 该模块提供了一个简单的命令行接口,可以通过HTTP请求的方式来关闭jvm-sandbox
+ * </p>
+ *
+ * @author baohh
+ */
 @MetaInfServices(Module.class)
 @Information(id = "sandbox-control", version = "0.0.3", author = "luanjia@taobao.com")
 public class ControlModule implements Module {
@@ -21,18 +30,6 @@ public class ControlModule implements Module {
 
     @Resource
     private ConfigInfo configInfo;
-
-    // 卸载jvm-sandbox
-    private void uninstall() throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException {
-        final Class<?> classOfAgentLauncher = getClass().getClassLoader()
-                .loadClass("com.alibaba.jvm.sandbox.agent.AgentLauncher");
-
-        MethodUtils.invokeStaticMethod(
-                classOfAgentLauncher,
-                "uninstall",
-                configInfo.getNamespace()
-        );
-    }
 
     // @Http("/shutdown")
     @Command("shutdown")
@@ -56,7 +53,27 @@ public class ControlModule implements Module {
         writer.close();
 
         shutdownJvmSandboxHook.start();
+    }
 
+    /**
+     * 卸载jvm-sandbox
+     * @throws ClassNotFoundException
+     * @throws NoSuchMethodException
+     * @throws IllegalAccessException
+     * @throws InvocationTargetException
+     *
+     * @see com.alibaba.jvm.sandbox.agent.AgentLauncher#uninstall(String)
+     */
+    private void uninstall() throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException {
+        final Class<?> classOfAgentLauncher = getClass().getClassLoader()
+                .loadClass("com.alibaba.jvm.sandbox.agent.AgentLauncher");
+
+        // 调用AgentLauncher的uninstall方法以完成卸载
+        MethodUtils.invokeStaticMethod(
+                classOfAgentLauncher,
+                "uninstall",
+                configInfo.getNamespace()
+        );
     }
 
 }

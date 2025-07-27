@@ -17,6 +17,10 @@ import static org.apache.commons.lang3.StringUtils.join;
 
 /**
  * 方法事件编织者
+ * <p>
+ * 该类继承自{@link ClassVisitor}，用于对目标类的字节码进行增强，
+ * 增强的方式为在方法调用前后插入事件触发逻辑，
+ * </p>
  * Created by luanjia@taobao.com on 16/7/16.
  */
 public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmMethods {
@@ -27,20 +31,43 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
     private final String namespace;
     private final int listenerId;
     private final String targetJavaClassName;
+
+    /**
+     * 需要进行增强的方法签名集合
+     */
     private final Set<String> signCodes;
+
     private final Event.Type[] eventTypeArray;
+
+    /**
+     * 生成的native方法的前缀
+     */
     private final String nativePrefix;
     private final List<ProxyMethod> proxyNativeAsmMethods = new ArrayList<>();
 
-    // 是否支持LINE_EVENT
-    // LINE_EVENT需要对Class做特殊的增强，所以需要在这里做特殊的判断
+    /**
+     * 是否需要对LINE事件进行通知
+     */
     private final boolean isLineEnable;
 
-    // 是否支持CALL_BEFORE/CALL_RETURN/CALL_THROWS事件
-    // CALL系列事件需要对Class做特殊的增强，所以需要在这里做特殊的判断
+    /**
+     * 是否需要对CALL_THROWS事件进行通知
+     */
     private final boolean hasCallThrows;
+
+    /**
+     * 是否需要对CALL_BEFORE事件进行通知
+     */
     private final boolean hasCallBefore;
+
+    /**
+     * 是否需要对CALL_RETURN事件进行通知
+     */
     private final boolean hasCallReturn;
+
+    /**
+     * 是否需要对CALL系列事件进行通知
+     */
     private final boolean isCallEnable;
 
     public EventWeaver(final int api,
@@ -68,6 +95,49 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
         this.isCallEnable = hasCallBefore || hasCallReturn || hasCallThrows;
     }
 
+    @Override
+    public MethodVisitor visitMethod(final int access, final String name, final String desc, final String signature, final String[] exceptions) {
+
+        final String signCode = getBehaviorSignCode(name, desc);
+        if (!isMatchedBehavior(signCode)) {
+            final MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
+            logger.debug("non-rewrite method {} for listener[id={}];",
+                    signCode,
+                    listenerId
+            );
+            return mv;
+        }
+
+        logger.info("rewrite method {} for listener[id={}];event={};",
+                signCode,
+                listenerId,
+                join(eventTypeArray, ",")
+        );
+
+        if (isNative(access)) {
+            // 重写native方法
+            return rewriteNativeMethod(access, name, desc, signature, exceptions);
+        } else {
+            // 重写普通方法
+            return rewriteNormalMethod(access, name, desc, signature, exceptions);
+        }
+    }
+
+    @Override
+    public void visitEnd() {
+
+        // 代理的native方法追加到类中
+        proxyNativeAsmMethods.forEach(method -> {
+            final boolean isStatic = (ACC_STATIC & method.access) != 0;
+            final int access = ACC_PRIVATE | ACC_NATIVE | ACC_FINAL | (isStatic ? ACC_STATIC : 0);
+            cv.visitMethod(access, method.getName(), method.getDescriptor(), null, null)
+                    .visitEnd();
+        });
+
+        super.visitEnd();
+    }
+
+
     private boolean isMatchedBehavior(final String signCode) {
         return signCodes.contains(signCode);
     }
@@ -92,15 +162,27 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
         return (access & Opcodes.ACC_NATIVE) != 0;
     }
 
-    /*
-     * native 方法插桩策略：
-     * 1.原始的native变为非native方法，并增加AOP式方法体
-     * 2.在AOP中增加调用wrapper后的native方法
-     * 3.增加proxy的native方法
+
+    /**
+     * 对native方法进行重写
+     * <p>
+     *     native 方法插桩策略为:
+     *     <ul>
+     *         <li>1.原始的native变为非native方法，并增加AOP式方法体</li>
+     *         <li>2.在AOP中增加调用wrapper后的native方法</li>
+     *         <li>3.增加proxy的native方法</li>
+     *     </ul>
+     * </p>
+     * @param access
+     * @param name
+     * @param desc
+     * @param signature
+     * @param exceptions
+     * @return
      */
     private MethodVisitor rewriteNativeMethod(final int access, final String name, final String desc, final String signature, final String[] exceptions) {
 
-        //去掉native
+        // 去掉native
         int newAccess = access & ~ACC_NATIVE;
 
         final MethodVisitor mv = super.visitMethod(newAccess, name, desc, signature, exceptions);
@@ -120,9 +202,9 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
             /**
              * 流程控制
              */
-
             @Override
             public void visitEnd() {
+                // 如果native方法名不是以nativePrefix开头，则代表需要进行增强
                 if (!name.startsWith(nativePrefix)) {
                     getCodeLock().lock(() -> {
                         mark(beginLabel);
@@ -135,6 +217,7 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
                         push(name);
                         push(desc);
                         loadThisOrPushNullIfIsStatic();
+                        // 插桩: 触发Before事件
                         invokeStatic(ASM_TYPE_SPY, ASM_METHOD_Spy$spyMethodOnBefore);
                         swap();
                         storeArgArray();
@@ -157,6 +240,7 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
                         loadReturn(Type.getReturnType(desc));
                         push(namespace);
                         push(listenerId);
+                        // 插桩: 触发RETURN事件
                         invokeStatic(ASM_TYPE_SPY, ASM_METHOD_Spy$spyMethodOnReturn);
                         processControl(desc, true);
                         returnValue();
@@ -168,6 +252,7 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
                         loadLocal(newLocal);
                         push(namespace);
                         push(listenerId);
+                        // 插桩: 触发THROW事件
                         invokeStatic(ASM_TYPE_SPY, ASM_METHOD_Spy$spyMethodOnThrows);
                         processControl(desc, false);
                         loadLocal(newLocal);
@@ -219,6 +304,7 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
                     push(name);
                     push(desc);
                     loadThisOrPushNullIfIsStatic();
+                    // 插桩: 触发BEFORE事件
                     invokeStatic(ASM_TYPE_SPY, ASM_METHOD_Spy$spyMethodOnBefore);
                     swap();
                     storeArgArray();
@@ -286,6 +372,7 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
                         loadReturn(opcode);
                         push(namespace);
                         push(listenerId);
+                        // 插桩: 触发RETURN事件
                         invokeStatic(ASM_TYPE_SPY, ASM_METHOD_Spy$spyMethodOnReturn);
                         processControl(desc, true);
                     });
@@ -308,6 +395,7 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
                     loadLocal(newLocal);
                     push(namespace);
                     push(listenerId);
+                    // 插桩: 触发THROW事件
                     invokeStatic(ASM_TYPE_SPY, ASM_METHOD_Spy$spyMethodOnThrows);
                     processControl(desc, false);
                     loadLocal(newLocal);
@@ -328,6 +416,7 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
                         push(lineNumber);
                         push(namespace);
                         push(listenerId);
+                        // 插桩: 触发LINE事件
                         invokeStatic(ASM_TYPE_SPY, ASM_METHOD_Spy$spyMethodOnLine);
                     });
                 }
@@ -358,6 +447,7 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
                         push(desc);
                         push(namespace);
                         push(listenerId);
+                        // 插桩: 触发BEFORE事件
                         invokeStatic(ASM_TYPE_SPY, ASM_METHOD_Spy$spyMethodOnCallBefore);
                     });
                 }
@@ -443,46 +533,6 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
         };
     }
 
-    @Override
-    public MethodVisitor visitMethod(final int access, final String name, final String desc, final String signature, final String[] exceptions) {
-
-        final String signCode = getBehaviorSignCode(name, desc);
-        if (!isMatchedBehavior(signCode)) {
-            final MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
-            logger.debug("non-rewrite method {} for listener[id={}];",
-                    signCode,
-                    listenerId
-            );
-            return mv;
-        }
-
-        logger.info("rewrite method {} for listener[id={}];event={};",
-                signCode,
-                listenerId,
-                join(eventTypeArray, ",")
-        );
-
-        if (isNative(access)) {
-            return rewriteNativeMethod(access, name, desc, signature, exceptions);
-        } else {
-            return rewriteNormalMethod(access, name, desc, signature, exceptions);
-        }
-    }
-
-    @Override
-    public void visitEnd() {
-
-        // 代理的native方法追加到类中
-        proxyNativeAsmMethods.forEach(method -> {
-            final boolean isStatic = (ACC_STATIC & method.access) != 0;
-            final int access = ACC_PRIVATE | ACC_NATIVE | ACC_FINAL | (isStatic ? ACC_STATIC : 0);
-            cv.visitMethod(access, method.getName(), method.getDescriptor(), null, null)
-                    .visitEnd();
-        });
-
-        super.visitEnd();
-    }
-
     /**
      * TryCatch块,用于ExceptionsTable重排序
      */
@@ -510,7 +560,7 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
 
         public final int access;
 
-        public ProxyMethod(int access , String name, String descriptor) {
+        public ProxyMethod(int access, String name, String descriptor) {
             super(name, descriptor);
             this.access = access;
         }

@@ -14,7 +14,7 @@ public class AccessFlags {
 
     private static final int BASE = 0x01;
 
-    public static final int ACF_PUBLIC = BASE << 0;
+    public static final int ACF_PUBLIC = BASE;
     public static final int ACF_PRIVATE = BASE << 1;
     public static final int ACF_PROTECTED = BASE << 2;
     public static final int ACF_STATIC = BASE << 3;

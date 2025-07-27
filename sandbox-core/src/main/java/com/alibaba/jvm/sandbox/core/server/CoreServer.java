@@ -21,6 +21,9 @@ public interface CoreServer {
 
     /**
      * 服务器解除端口绑定
+     * <p>
+     *     在解除绑定时需要关闭JvmSandbox，同时关闭服务器
+     * </p>
      *
      * @throws IOException 解除绑定失败
      */
@@ -36,6 +39,9 @@ public interface CoreServer {
 
     /**
      * 服务器绑定端口
+     * <p>
+     *     在绑定端口时需要启动JvmSandbox，同时启动服务器
+     * </p>
      *
      * @param cfg  内核配置信息
      * @param inst inst

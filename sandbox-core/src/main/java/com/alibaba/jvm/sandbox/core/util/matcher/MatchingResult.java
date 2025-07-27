@@ -11,6 +11,9 @@ import java.util.LinkedHashSet;
  */
 public class MatchingResult {
 
+    /**
+     * 匹配成功的行为(方法)结构
+     */
     private final LinkedHashSet<BehaviorStructure> behaviorStructures = new LinkedHashSet<>();
 
     /**
@@ -23,7 +26,7 @@ public class MatchingResult {
     }
 
     /**
-     * 获取匹配上的行为列表
+     * 获取匹配上的行为(方法)列表
      *
      * @return 匹配上的行为列表
      */
@@ -32,7 +35,7 @@ public class MatchingResult {
     }
 
     /**
-     * 获取匹配上的行为签名列表
+     * 获取匹配上的行为(方法)签名列表
      *
      * @return 行为签名列表
      */

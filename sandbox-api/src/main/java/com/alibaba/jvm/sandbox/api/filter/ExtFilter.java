@@ -6,7 +6,8 @@ import com.alibaba.jvm.sandbox.api.annotation.IncludeSubClasses;
 /**
  * 增强过滤器
  * <p>
- * 原有的{@link Filter}表现形式过于单薄而且纵深扩展能力偏差，所以使用了一些Annotation进行扩展，
+ * 原有的{@link Filter}表现形式过于单薄而且纵深扩展能力偏差，
+ * 所以使用了一些Annotation(例如: {@link IncludeSubClasses})进行扩展，
  * 扩展之后的结果最终会以ExtFilter的形式在容器内部运转
  *
  * @author luanjia@taobao.com
@@ -31,6 +32,10 @@ public interface ExtFilter extends Filter {
 
     /**
      * 增强过滤器工厂类
+     *
+     * <p>
+     * 它的作用就是将原有的{@link Filter}转换为增强过滤器{@link ExtFilter}，
+     * </p>
      */
     class ExtFilterFactory {
 
@@ -96,14 +101,11 @@ public interface ExtFilter extends Filter {
          * @return 增强过滤器
          */
         public static ExtFilter make(final Filter filter) {
-            return
-                    filter instanceof ExtFilter
-                            ? (ExtFilter) filter
-                            : make(
-                            filter,
-                            filter.getClass().isAnnotationPresent(IncludeSubClasses.class),
-                            filter.getClass().isAnnotationPresent(IncludeBootstrap.class)
-                    );
+            return filter instanceof ExtFilter ? (ExtFilter) filter : make(
+                    filter,
+                    filter.getClass().isAnnotationPresent(IncludeSubClasses.class),
+                    filter.getClass().isAnnotationPresent(IncludeBootstrap.class)
+            );
         }
 
     }

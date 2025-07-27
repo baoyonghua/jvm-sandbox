@@ -147,7 +147,7 @@ public class JettyCoreServer implements CoreServer {
     }
 
     private void initHttpServer() {
-
+        // 从CoreConfigure实例中获取端口和port信息
         final String serverIp = cfg.getServerIp();
         final int serverPort = cfg.getServerPort();
 
@@ -170,6 +170,12 @@ public class JettyCoreServer implements CoreServer {
         httpServer.setThreadPool(qtp);
     }
 
+    /**
+     * 绑定一个地址以启动内核服务器，对外暴露Http服务
+     * @param cfg  内核配置信息
+     * @param inst inst
+     * @throws IOException
+     */
     @Override
     public synchronized void bind(final CoreConfigure cfg, final Instrumentation inst) throws IOException {
         this.cfg = cfg;
@@ -180,13 +186,15 @@ public class JettyCoreServer implements CoreServer {
                         cfg.getCfgLibPath() + File.separator + "sandbox-logback.xml"
                 );
                 logger.info("initializing server. cfg={}", cfg);
+                // 【重要】启动JVM-SANDBOX
                 jvmSandbox = new JvmSandbox(cfg, inst);
+                // 【重要】初始化HTTP服务器以对外提供Http服务
                 initHttpServer();
                 initJettyContextHandler();
                 httpServer.start();
             });
 
-            // 初始化加载所有的模块
+            // 【重要】初始化加载所有的模块
             try {
                 jvmSandbox.getCoreModuleManager().reset();
             } catch (Throwable cause) {

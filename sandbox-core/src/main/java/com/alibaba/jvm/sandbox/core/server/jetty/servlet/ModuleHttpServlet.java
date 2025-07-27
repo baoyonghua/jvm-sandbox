@@ -83,7 +83,7 @@ public class ModuleHttpServlet extends HttpServlet {
             return;
         }
 
-        // 匹配对应的方法
+        // 匹配该模块中用于处理该请求的方法
         final Method method = matchingModuleMethod(
                 path,
                 expectHttpMethod,
@@ -130,6 +130,7 @@ public class ModuleHttpServlet extends HttpServlet {
         try {
             method.setAccessible(true);
             Thread.currentThread().setContextClassLoader(coreModule.getLoader());
+            // 调用对应模块的方法来处理此次Http请求
             method.invoke(coreModule.getModule(), parameterObjectArray);
             logger.debug("path={} invoke module {} method {} success.", path, uniqueId, method.getName());
         } catch (IllegalAccessException iae) {
@@ -253,6 +254,7 @@ public class ModuleHttpServlet extends HttpServlet {
                                                   final HttpServletRequest req,
                                                   final HttpServletResponse resp) throws IOException {
 
+        // 获取用于处理Http请求的方法的参数信息
         final Class<?>[] parameterTypeArray = method.getParameterTypes();
         if (ArrayUtils.isEmpty(parameterTypeArray)) {
             return null;
@@ -261,23 +263,23 @@ public class ModuleHttpServlet extends HttpServlet {
         for (int index = 0; index < parameterObjectArray.length; index++) {
             final Class<?> parameterType = parameterTypeArray[index];
 
-            // HttpServletRequest
+            // 参数类型是HttpServletRequest
             if (HttpServletRequest.class.isAssignableFrom(parameterType)) {
                 parameterObjectArray[index] = req;
             }
 
-            // HttpServletResponse
+            // 参数类型是HttpServletResponse
             else if (HttpServletResponse.class.isAssignableFrom(parameterType)) {
                 parameterObjectArray[index] = resp;
             }
 
-            // ParameterMap<String,String[]>
+            // 参数类型是Map<String,String[]>
             else if (Map.class.isAssignableFrom(parameterType)
                     && isMapWithGenericParameterTypes(method, index, String.class, String[].class)) {
                 parameterObjectArray[index] = req.getParameterMap();
             }
 
-            // ParameterMap<String,String>
+            // 参数类型是Map<String,String>
             else if (Map.class.isAssignableFrom(parameterType)
                     && isMapWithGenericParameterTypes(method, index, String.class, String.class)) {
                 final Map<String, String> param = new HashMap<>();
@@ -287,20 +289,20 @@ public class ModuleHttpServlet extends HttpServlet {
                 parameterObjectArray[index] = param;
             }
 
-            // QueryString
+            // 参数类型是String
             else if (String.class.isAssignableFrom(parameterType)) {
                 parameterObjectArray[index] = req.getQueryString();
             }
 
 
-            // PrintWriter
+            // 参数类型是PrintWriter
             else if (PrintWriter.class.isAssignableFrom(parameterType)) {
                 final PrintWriter writer = resp.getWriter();
                 autoCloseResources.add(writer);
                 parameterObjectArray[index] = writer;
             }
 
-            // OutputStream
+            // 参数类型是OutputStream
             else if (OutputStream.class.isAssignableFrom(parameterType)) {
                 final OutputStream output = resp.getOutputStream();
                 autoCloseResources.add(output);

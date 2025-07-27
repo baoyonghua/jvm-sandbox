@@ -33,28 +33,22 @@ public class ModuleJarClassLoader extends RoutingURLClassLoader {
     private final File tempModuleJarFile;
     private final long checksumCRC32;
 
-    /**
-     * 复制要加载的Jar文件为临时文件，这样做的目的是为了规避Jar文件在加载和使用过程中被破坏
-     *
-     * @param moduleJarFile 模块Jar文件
-     * @return 复制的临时文件
-     * @throws IOException 复制文件失败
-     */
-    private static File copyToTempFile(final File moduleJarFile) throws IOException {
-        File tempFile = File.createTempFile("sandbox_module_jar_", ".jar");
-        tempFile.deleteOnExit();
-        FileUtils.copyFile(moduleJarFile, tempFile);
-        return tempFile;
-    }
 
+    /**
+     * @param moduleJarFile  等待被加载的模块Jar文件
+     * @param specialRouting 路由规则
+     * @throws IOException
+     */
     public ModuleJarClassLoader(final File moduleJarFile,
                                 final Routing... specialRouting) throws IOException {
         this(moduleJarFile, copyToTempFile(moduleJarFile), specialRouting);
     }
 
-    private ModuleJarClassLoader(final File moduleJarFile,
-                                 final File tempModuleJarFile,
-                                 final Routing... specialRouting) throws IOException {
+    private ModuleJarClassLoader(
+            final File moduleJarFile,
+            final File tempModuleJarFile,
+            final Routing... specialRouting
+    ) throws IOException {
         super(
                 new URL[]{new URL("file:" + tempModuleJarFile.getPath())},
                 assembleRouting(new Routing(
@@ -74,7 +68,20 @@ public class ModuleJarClassLoader extends RoutingURLClassLoader {
         } catch (Throwable e) {
             logger.warn("clean ProtectionDomain in {}'s acc failed.", this, e);
         }
+    }
 
+    /**
+     * 复制要加载的Jar文件为临时文件，这样做的目的是为了规避Jar文件在加载和使用过程中被破坏
+     *
+     * @param moduleJarFile 模块Jar文件
+     * @return 复制的临时文件
+     * @throws IOException 复制文件失败
+     */
+    private static File copyToTempFile(final File moduleJarFile) throws IOException {
+        File tempFile = File.createTempFile("sandbox_module_jar_", ".jar");
+        tempFile.deleteOnExit();
+        FileUtils.copyFile(moduleJarFile, tempFile);
+        return tempFile;
     }
 
     /**
@@ -95,9 +102,11 @@ public class ModuleJarClassLoader extends RoutingURLClassLoader {
 
     /**
      * 清理来自URLClassLoader.acc.ProtectionDomain[]中，来自上一个ModuleJarClassLoader的ProtectionDomain
+     * <p>
      * 这样写好蛋疼，而且还有不兼容的风险，从JDK6+都必须要这样清理，但我找不出更好的办法。
      * 在重置沙箱时，遇到MgrModule模块无法正确卸载类的情况，主要的原因是在于URLClassLoader.acc.ProtectionDomain[]中包含了上一个ModuleJarClassLoader的引用
      * 所以必须要在这里清理掉，否则随着重置次数的增加，类会越累积越多
+     * </p>
      */
     private void cleanProtectionDomainWhichCameFromModuleJarClassLoader() {
 

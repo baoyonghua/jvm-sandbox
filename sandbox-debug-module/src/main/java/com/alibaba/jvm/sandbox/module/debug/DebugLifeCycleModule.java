@@ -137,7 +137,8 @@ public class DebugLifeCycleModule implements Module, ModuleLifecycle{
 
         try {
             // 模块load完成后，模块已经被激活
-            lifeCLogger.info("after sandbox-module-debug-lifecycle load Completed，module isActivated = {}", moduleManager.isActivated("debug-lifecycle"));
+            lifeCLogger.info("after sandbox-module-debug-lifecycle load Completed，module isActivated = {}",
+                    moduleManager.isActivated("debug-lifecycle"));
 
             //冻结模块
             lifeCLogger.info("sandbox-module-debug-lifecycle start frozen");

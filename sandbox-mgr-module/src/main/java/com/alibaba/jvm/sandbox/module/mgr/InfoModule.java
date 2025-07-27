@@ -14,6 +14,9 @@ import java.io.PrintWriter;
 
 /**
  * 沙箱信息模块
+ * <p>
+ * 该模块提供了一个简单的命令行接口,可以通过HTTP请求的方式来获取jvm-sandbox的版本信息和配置参数等
+ * </p>
  *
  * @author luanjia@taobao.com
  */
@@ -28,18 +31,18 @@ public class InfoModule implements Module {
     public void version(final PrintWriter writer) throws IOException {
         String versionSB =
                 "                    NAMESPACE : " + configInfo.getNamespace() + "\n" +
-                "                      VERSION : " + configInfo.getVersion() + "\n" +
-                "                         MODE : " + configInfo.getMode() + "\n" +
-                "                  SERVER_ADDR : " + configInfo.getServerAddress().getHostName() + "\n" +
-                "                  SERVER_PORT : " + configInfo.getServerAddress().getPort() + "\n" +
-                "               SERVER_CHARSET : " + configInfo.getServerCharset().toUpperCase() + "\n" +
-                "               UNSAFE_SUPPORT : " + (configInfo.isEnableUnsafe() ? "ENABLE" : "DISABLE") + "\n" +
-                "               NATIVE_SUPPORT : " + (configInfo.isNativeSupported() ? "ENABLE" : "DISABLE") + "\n" +
-                "                 SANDBOX_HOME : " + configInfo.getHome() + "\n" +
-                "            SYSTEM_MODULE_LIB : " + configInfo.getSystemModuleLibPath() + "\n" +
-                "              USER_MODULE_LIB : " + StringUtils.join(configInfo.getUserModuleLibPaths(),";") + "\n" +
-                "          SYSTEM_PROVIDER_LIB : " + configInfo.getSystemProviderLibPath() + "\n" +
-                "           EVENT_POOL_SUPPORT : " + (configInfo.isEnableEventPool() ? "ENABLE" : "DISABLE");
+                        "                      VERSION : " + configInfo.getVersion() + "\n" +
+                        "                         MODE : " + configInfo.getMode() + "\n" +
+                        "                  SERVER_ADDR : " + configInfo.getServerAddress().getHostName() + "\n" +
+                        "                  SERVER_PORT : " + configInfo.getServerAddress().getPort() + "\n" +
+                        "               SERVER_CHARSET : " + configInfo.getServerCharset().toUpperCase() + "\n" +
+                        "               UNSAFE_SUPPORT : " + (configInfo.isEnableUnsafe() ? "ENABLE" : "DISABLE") + "\n" +
+                        "               NATIVE_SUPPORT : " + (configInfo.isNativeSupported() ? "ENABLE" : "DISABLE") + "\n" +
+                        "                 SANDBOX_HOME : " + configInfo.getHome() + "\n" +
+                        "            SYSTEM_MODULE_LIB : " + configInfo.getSystemModuleLibPath() + "\n" +
+                        "              USER_MODULE_LIB : " + StringUtils.join(configInfo.getUserModuleLibPaths(), ";") + "\n" +
+                        "          SYSTEM_PROVIDER_LIB : " + configInfo.getSystemProviderLibPath() + "\n" +
+                        "           EVENT_POOL_SUPPORT : " + (configInfo.isEnableEventPool() ? "ENABLE" : "DISABLE");
         writer.println(versionSB);
         writer.flush();
     }

@@ -12,6 +12,9 @@ import java.util.*;
 
 /**
  * 沙箱模块内核封装对象
+ * <p>
+ *     CoreModule是对{@link Module}的封装,它包含了模块的唯一标识符,归属Jar文件, 是否已加载...
+ * </p>
  *
  * @author luanjia@taobao.com
  */
@@ -31,13 +34,11 @@ public class CoreModule {
     // 模块
     private final Module module;
 
-    // 模块的类转换器
-    private final Set<SandboxClassFileTransformer> sandboxClassFileTransformers
-            = new LinkedHashSet<>();
+    // 模块的类转换器。用于完成对匹配到的类和方法进行字节码增强
+    private final Set<SandboxClassFileTransformer> sandboxClassFileTransformers = new LinkedHashSet<>();
 
     // 模块所持有的可释放资源
-    private final List<ReleaseResource<?>> releaseResources
-            = new ArrayList<>();
+    private final List<ReleaseResource<?>> releaseResources = new ArrayList<>();
 
     // 是否已经激活
     private boolean isActivated;

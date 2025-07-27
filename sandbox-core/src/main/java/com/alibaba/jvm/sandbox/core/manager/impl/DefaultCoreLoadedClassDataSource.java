@@ -25,13 +25,27 @@ import static com.alibaba.jvm.sandbox.core.util.SandboxStringUtils.toInternalCla
 public class DefaultCoreLoadedClassDataSource implements CoreLoadedClassDataSource {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
+
+    /**
+     * Instrumentation实例
+     */
     private final Instrumentation inst;
+
+    /**
+     * 是否支持对JDK原生类的增强操作
+     */
     private final boolean isEnableUnsafe;
+
+    /**
+     * 是否支持对native方法的增强操作
+     */
     private final boolean isNativeSupported;
 
-    public DefaultCoreLoadedClassDataSource(final Instrumentation inst,
-                                            final boolean isEnableUnsafe,
-                                            final boolean isNativeSupported) {
+    public DefaultCoreLoadedClassDataSource(
+            final Instrumentation inst,
+            final boolean isEnableUnsafe,
+            final boolean isNativeSupported
+    ) {
         this.inst = inst;
         this.isEnableUnsafe = isEnableUnsafe;
         this.isNativeSupported = isNativeSupported;
@@ -40,9 +54,7 @@ public class DefaultCoreLoadedClassDataSource implements CoreLoadedClassDataSour
     @Override
     public Set<Class<?>> list() {
         final Set<Class<?>> classes = new LinkedHashSet<>();
-        for(final Class<?> clazz : inst.getAllLoadedClasses()) {
-            classes.add(clazz);
-        }
+        Collections.addAll(classes, inst.getAllLoadedClasses());
         return classes;
     }
 

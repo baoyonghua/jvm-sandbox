@@ -2,9 +2,14 @@ package com.alibaba.jvm.sandbox.core.enhance.weaver;
 
 /**
  * 代码锁
+ * <p>
  * 什么叫代码锁?代码锁的出现是由于在字节码中，我们无法用简单的if语句来判定这段代码是生成的还是原有的。
- * 这会导致一些监控逻辑的混乱，比如trace命令如果不使用代码锁保护，将能看到Greys所植入的代码并进行跟踪
- * Created by oldmanpushcart@gmail.com on 15/5/28.
+ * 这会导致一些监控逻辑的混乱，比如trace命令如果不使用代码锁保护，将能看到Greys所植入的代码并进行跟踪。<br>
+ * </p>
+ * <p>
+ * tips: Greys（全称为 Greys-anatomy）是一个基于 Java 的在线诊断和监控工具，类似于 Arthas。
+ * 它可以在不重启 JVM 的情况下，对正在运行的 Java 应用进行诊断、监控、热更新等操作。
+ * Greys 通过字节码增强技术实现对方法的跟踪、监控和动态修改，常用于排查线上问题
  */
 public interface CodeLock {
 

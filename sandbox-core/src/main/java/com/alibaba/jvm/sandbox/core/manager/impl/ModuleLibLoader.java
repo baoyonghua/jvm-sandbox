@@ -33,15 +33,20 @@ class ModuleLibLoader {
         this.mode = mode;
     }
 
+    /**
+     * 将moduleLibDir(模块lib目录)转换为模块jar文件数组
+     *
+     * @return
+     */
     private File[] toModuleJarFileArray() {
         if (moduleLibDir.exists()
                 && moduleLibDir.isFile()
                 && moduleLibDir.canRead()
                 && StringUtils.endsWith(moduleLibDir.getName(), ".jar")) {
-            return new File[]{
-                    moduleLibDir
-            };
+            // 给定的moduleLibDir是一个jar文件，直接返回它就好了
+            return new File[]{moduleLibDir};
         } else {
+            // 给定的moduleLibDir是一个目录，则返回该目录下的所有jar文件
             return convertFileCollectionToFileArray(
                     listFiles(moduleLibDir, new String[]{"jar"}, false)
             );
@@ -49,6 +54,14 @@ class ModuleLibLoader {
     }
 
 
+    /**
+     * 列出模块lib目录下的所有模块jar文件
+     * <p>
+     * 如果moduleLibDir是一个jar文件，则直接返回该jar文件
+     * </p>
+     *
+     * @return 模块jar文件数组
+     */
     private File[] listModuleJarFileInLib() {
         final File[] moduleJarFileArray = toModuleJarFileArray();
         Arrays.sort(moduleJarFileArray);
@@ -63,16 +76,16 @@ class ModuleLibLoader {
     /**
      * 加载Module
      *
-     * @param mjCb 模块文件加载回调
-     * @param mCb  模块加载回掉
+     * @param mjCb 模块jar文件加载回调，当一个jar文件被加载时会回调该方法
+     * @param mCb  模块加载回调, 当jar文件下具体的一个模块被加载时会回调该方法
      */
-    void load(final ModuleJarLoadCallback mjCb,
-              final ModuleJarLoader.ModuleLoadCallback mCb) {
-
+    void load(final ModuleJarLoadCallback mjCb, final ModuleJarLoader.ModuleLoadCallback mCb) {
         // 开始逐条加载
         for (final File moduleJarFile : listModuleJarFileInLib()) {
             try {
+                // ModuleJarLoadCallback 加载回调 -> 一个模块jar包下可能有多个模块Module
                 mjCb.onLoad(moduleJarFile);
+                // 正式加载jar文件下的模块，每加载一个模块都会回调ModuleLoadCallback
                 new ModuleJarLoader(moduleJarFile, mode).load(mCb);
             } catch (Throwable cause) {
                 logger.warn("loading module-jar occur error! module-jar={};", moduleJarFile, cause);

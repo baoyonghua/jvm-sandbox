@@ -4,9 +4,9 @@ import com.alibaba.jvm.sandbox.api.ProcessController;
 import com.alibaba.jvm.sandbox.api.event.Event;
 
 /**
- * 通知监听器
+ * Advice通知监听器
  * <p>
- * 将{@link Event}转换为更友好的{@link Advice}，当然，代价是一定的性能开销
+ * 会将{@link Event}转换为更友好的{@link Advice}然后再通知给监听器，当然，代价是一定的性能开销
  * </p>
  *
  * @author luanjia@taobao.com
@@ -139,14 +139,13 @@ public class AdviceListener {
      * CALL系列事件必定是包含在BEFORE/RETURN/THROWS事件之间。
      * </p>
      *
-     * @since {@code sandbox-api:1.2.2}
-     *
      * @param advice                 Caller的行为通知
      * @param callLineNum            调用发生的代码行(可能为-1，取决于目标编译代码的编译策略)
      * @param callJavaClassName      调用目标类名
      * @param callJavaMethodName     调用目标行为名称
      * @param callJavaMethodDesc     调用目标行为描述
      * @param callThrowJavaClassName 调用目标异常类名，若正常返回则为 null
+     * @since {@code sandbox-api:1.2.2}
      */
     protected void afterCall(Advice advice,
                              int callLineNum,

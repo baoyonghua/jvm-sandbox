@@ -26,7 +26,7 @@ public class Sentry<M> implements Attachment {
     }
 
     private final M init;
-    private final ThreadLocal<WrapData> wrapDataRef = ThreadLocal.withInitial(() -> new WrapData());
+    private final ThreadLocal<WrapData> wrapDataRef = ThreadLocal.withInitial(WrapData::new);
 
     /**
      * 构建哨兵

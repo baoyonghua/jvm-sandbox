@@ -14,7 +14,7 @@ public interface ModuleJarLoadingChain {
      * <p>
      * 1. 可以在这个实现中对目标期待加载的模块Jar文件进行解密,签名验证等操作<br>
      * 2. 如果判定加载失败,可以通过抛出异常的形式中断加载,sandbox将会跳过此模块Jar文件的加载<br>
-     * 3. 整个模块文件的加载为一个链式的加载过程<br>
+     * 3. 整个模块文件的加载为一个链式的加载过程，即：可以由多个{@link ModuleJarLoadingChain}实现来完成对该jar文件的处理<br>
      * </p>
      *
      * @param moduleJarFile 期待被加载模块Jar文件

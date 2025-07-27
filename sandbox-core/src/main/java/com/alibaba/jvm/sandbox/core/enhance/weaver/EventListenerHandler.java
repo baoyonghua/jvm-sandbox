@@ -37,9 +37,15 @@ public class EventListenerHandler implements SpyHandler {
     // private final Sequencer invokeIdSequencer = new Sequencer();
     private final AtomicInteger invokeIdSequencer = new AtomicInteger(1000);
 
-    // 全局处理器ID:处理器映射集合
-    private final Map<Integer/*LISTENER_ID*/, EventProcessor> mappingOfEventProcessor
-            = new ConcurrentHashMap<>();
+    // 全局事件处理器ID:事件处理器映射集合
+    private final Map<Integer/*LISTENER_ID*/, EventProcessor> mappingOfEventProcessor = new ConcurrentHashMap<>();
+
+    private final static EventListenerHandler singleton = new EventListenerHandler();
+
+    public static EventListenerHandler getSingleton() {
+        return singleton;
+    }
+
 
     /**
      * 注册事件处理器
@@ -60,7 +66,7 @@ public class EventListenerHandler implements SpyHandler {
     }
 
     /**
-     * 取消事件处理器
+     * 取消事件处理器的监听
      *
      * @param listenerId 事件处理器ID
      */
@@ -604,15 +610,4 @@ public class EventListenerHandler implements SpyHandler {
             processor.check();
         }
     }
-
-
-    // ----------------------------------- 单例模式 -----------------------------------
-
-    private final static EventListenerHandler singleton = new EventListenerHandler();
-
-    public static EventListenerHandler getSingleton() {
-        return singleton;
-    }
-
-
 }

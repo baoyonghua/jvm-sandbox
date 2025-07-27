@@ -8,6 +8,9 @@ import java.util.Collection;
 
 /**
  * 模块管理器
+ * <p>
+ *     用于管理所有已加载的沙箱模块
+ * </p>
  *
  * @author luanjia@taobao.com
  */
