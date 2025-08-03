@@ -22,7 +22,7 @@ import java.io.PrintWriter;
  */
 @MetaInfServices(Module.class)
 @Information(id = "sandbox-info", version = "0.0.4", author = "luanjia@taobao.com")
-public class InfoModule implements Module {
+public class SandboxInfoModule implements Module {
 
     @Resource
     private ConfigInfo configInfo;

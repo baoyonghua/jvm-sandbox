@@ -35,282 +35,8 @@ import static java.util.regex.Pattern.quote;
  */
 public class EventWatchBuilder {
 
-    /**
-     * 构建类匹配器
-     */
-    public interface IBuildingForClass {
-
-        /**
-         * 是否包含被Bootstrap所加载的类
-         * <p>
-         * 类似如："java.lang.String"等，都是来自BootstrapClassLoader所加载的类。
-         * 如果你需要增强他们则必须在{@code sandbox.properties}文件，将UNSAFE开关打开{@code unsafe.enable=true}
-         * </p>
-         *
-         * @return IBuildingForClass
-         */
-        IBuildingForClass includeBootstrap();
-
-        /**
-         * 是否包含被Bootstrap所加载的类
-         *
-         * @param isIncludeBootstrap TRUE:包含Bootstrap;FALSE:不包含Bootstrap;
-         * @return IBuildingForClass
-         * @see #includeBootstrap()
-         * @since {@code sandbox-api:1.0.15}
-         */
-        IBuildingForClass isIncludeBootstrap(boolean isIncludeBootstrap);
-
-        /**
-         * {@link #onClass}所指定的类，检索路径是否包含子类（实现类）
-         * <ul>
-         * <li>如果onClass()了一个接口，则匹配时会搜索这个接口的所有实现类</li>
-         * <li>如果onClass()了一个类，则匹配时会搜索这个类的所有子类</li>
-         * </ul>
-         *
-         * @return IBuildingForClass
-         */
-        IBuildingForClass includeSubClasses();
-
-        /**
-         * 是否包含被子类或实现类
-         *
-         * @param isIncludeSubClasses TRUE:包含子类（实现类）;FALSE:不包含子类（实现类）;
-         * @return IBuildingForClass
-         * @see #includeSubClasses()
-         * @since {@code sandbox-api:1.0.15}
-         */
-        IBuildingForClass isIncludeSubClasses(boolean isIncludeSubClasses);
-
-        /**
-         * 类修饰匹配
-         *
-         * @param access access flag
-         * @return IBuildingForClass
-         * @see AccessFlags
-         */
-        IBuildingForClass withAccess(int access);
-
-        /**
-         * 类是否声明实现了某一组接口
-         *
-         * @param classes 接口组类型数组
-         * @return IBuildingForClass
-         * @see #hasInterfaceTypes(String...)
-         */
-        IBuildingForClass hasInterfaceTypes(Class<?>... classes);
-
-        /**
-         * 类是否声明实现了某一组接口
-         * <p>
-         * 接口组是一个可变参数组，匹配关系为"与"。即：当前类必须同时实现接口模式匹配组的所有接口才能匹配通过
-         * </p>
-         *
-         * @param patterns 接口组匹配模版
-         * @return IBuildingForClass
-         */
-        IBuildingForClass hasInterfaceTypes(String... patterns);
-
-        /**
-         * 类是否拥有某一组标注
-         *
-         * @param classes 标注组类型数组
-         * @return IBuildingForClass
-         * @see #hasAnnotationTypes(String...)
-         */
-        IBuildingForClass hasAnnotationTypes(Class<?>... classes);
-
-        /**
-         * 类是否拥有某一组标注
-         * <p>
-         * 标注组是一个可变参数组，匹配关系为"与"。即：当前类必须同时满足所有标注匹配条件！
-         * </p>
-         *
-         * @param patterns 标注组匹配模版
-         * @return IBuildingForClass
-         */
-        IBuildingForClass hasAnnotationTypes(String... patterns);
-
-        /**
-         * 构建行为匹配器，匹配任意行为
-         * <p>
-         * 等同于{@code onBehavior("*")}
-         * </p>
-         *
-         * @return IBuildingForBehavior
-         */
-        IBuildingForBehavior onAnyBehavior();
-
-        /**
-         * 构建行为匹配器，匹配符合模版匹配名称的行为
-         *
-         * @param pattern 行为名称
-         * @return IBuildingForBehavior
-         */
-        IBuildingForBehavior onBehavior(String pattern);
-
-    }
-
-    /**
-     * 构建方法匹配器
-     */
-    public interface IBuildingForBehavior {
-
-        IBuildingForBehavior withAccess(int access);
-
-        IBuildingForBehavior withEmptyParameterTypes();
-
-        IBuildingForBehavior withParameterTypes(String... patterns);
-
-        IBuildingForBehavior withParameterTypes(Class<?>... classes);
-
-        IBuildingForBehavior hasExceptionTypes(String... patterns);
-
-        IBuildingForBehavior hasExceptionTypes(Class<?>... classes);
-
-        IBuildingForBehavior hasAnnotationTypes(String... patterns);
-
-        IBuildingForBehavior hasAnnotationTypes(Class<?>... classes);
-
-        IBuildingForBehavior onBehavior(String pattern);
-
-        IBuildingForClass onClass(String pattern);
-
-        IBuildingForClass onClass(Class<?> clazz);
-
-        IBuildingForClass onAnyClass();
-
-        IBuildingForWatching onWatching();
-
-        /**
-         * <p>兼容老版本BUGFIX</p>
-         * 在1.2.0的版本中没有考虑好老版本的API向下兼容性问题，这里做一个修复 #236
-         *
-         * @param adviceListener advice监听器
-         * @return this
-         */
-        EventWatcher onWatch(AdviceListener adviceListener);
-
-        /**
-         * 观察器
-         *
-         * @param adviceListener advice监听器
-         * @param eventTypeArray 需要被监听的事件列表（参数废弃）
-         * @return this
-         * @deprecated 根据 #256 的建议，这个接口废弃，请采用 {@link #onWatch(AdviceListener)} 代替
-         */
-        @Deprecated
-        EventWatcher onWatch(AdviceListener adviceListener, Event.Type... eventTypeArray);
-
-        EventWatcher onWatch(EventListener eventListener, Event.Type... eventTypeArray);
-
-    }
-
-    /**
-     * 构建观察构建器
-     */
-    public interface IBuildingForWatching {
-
-        /**
-         * 添加渲染进度监听器，可以添加多个
-         * <p>
-         * 用于观察{@link #onWatch(AdviceListener)}和{@link #onWatch(EventListener, Event.Type...)}的渲染进度
-         * </p>
-         *
-         * @param progress 渲染进度监听器
-         * @return IBuildingForWatching
-         */
-        IBuildingForWatching withProgress(Progress progress);
-
-        /**
-         * 观察行为内部的方法调用
-         * 调用之后，
-         * <ul>
-         * <li>{@link AdviceListener#beforeCall(Advice, int, String, String, String)}</li>
-         * <li>{@link AdviceListener#afterCallReturning(Advice, int, String, String, String)}</li>
-         * <li>{@link AdviceListener#afterCallThrowing(Advice, int, String, String, String, String)}</li>
-         * </ul>
-         * <p>
-         * 将会被触发
-         *
-         * @return IBuildingForWatching
-         */
-        IBuildingForWatching withCall();
-
-        /**
-         * 观察行为内部的行调用
-         * 调用之后，
-         * <ul>
-         * <li>{@link AdviceListener#beforeLine(Advice, int)}</li>
-         * </ul>
-         * 将会被触发
-         *
-         * @return IBuildingForWatching
-         */
-        IBuildingForWatching withLine();
-
-        /**
-         * 使用通知监听器观察
-         *
-         * @param adviceListener 通知监听器
-         * @return EventWatcher
-         */
-        EventWatcher onWatch(AdviceListener adviceListener);
-
-        /**
-         * 使用事件监听器观察
-         *
-         * @param eventListener  事件监听器
-         * @param eventTypeArray 需要监听的事件
-         * @return EventWatcher
-         */
-        EventWatcher onWatch(EventListener eventListener, Event.Type... eventTypeArray);
-
-    }
-
-    /**
-     * 构建删除观察构建器
-     */
-    public interface IBuildingForUnWatching {
-
-        /**
-         * 添加渲染进度监听器，可以添加多个
-         * <p>
-         * 用于观察{@link #onUnWatched()}方法渲染类的进度
-         * </p>
-         *
-         * @param progress 渲染进度监听器
-         * @return IBuildingForWatching
-         */
-        IBuildingForUnWatching withProgress(Progress progress);
-
-        /**
-         * 删除观察者
-         */
-        void onUnWatched();
-
-    }
-
-
     // -------------------------- 这里开始实现 --------------------------
 
-    /**
-     * 模版匹配模式
-     *
-     * @since {@code sandbox-api:1.1.2}
-     */
-    public enum PatternType {
-
-        /**
-         * 通配符表达式
-         */
-        WILDCARD,
-
-        /**
-         * 正则表达式
-         */
-        REGEX
-    }
 
     /**
      * 事件观察者
@@ -339,44 +65,6 @@ public class EventWatchBuilder {
                              final PatternType patternType) {
         this.moduleEventWatcher = moduleEventWatcher;
         this.patternType = patternType;
-    }
-
-    /**
-     * 模式匹配
-     *
-     * @param string      目标字符串
-     * @param pattern     模式字符串
-     * @param patternType 匹配模式
-     * @return TRUE:匹配成功 / FALSE:匹配失败
-     */
-    private static boolean patternMatching(final String string,
-                                           final String pattern,
-                                           final PatternType patternType) {
-        switch (patternType) {
-            case WILDCARD:
-                return GaStringUtils.matching(string, pattern);
-            case REGEX:
-                return string.matches(pattern);
-            default:
-                return false;
-        }
-    }
-
-    /**
-     * 将字符串数组转换为正则表达式字符串数组
-     *
-     * @param stringArray 目标字符串数组
-     * @return 正则表达式字符串数组
-     */
-    private static String[] toRegexQuoteArray(final String[] stringArray) {
-        if (null == stringArray) {
-            return null;
-        }
-        final String[] regexQuoteArray = new String[stringArray.length];
-        for (int index = 0; index < stringArray.length; index++) {
-            regexQuoteArray[index] = quote(stringArray[index]);
-        }
-        return regexQuoteArray;
     }
 
 
@@ -435,6 +123,46 @@ public class EventWatchBuilder {
     public IBuildingForClass onClass(final String pattern) {
         return add(bfClasses, new BuildingForClass(pattern));
     }
+
+    /**
+     * 模式匹配
+     *
+     * @param string      目标字符串
+     * @param pattern     模式字符串
+     * @param patternType 匹配模式
+     * @return TRUE:匹配成功 / FALSE:匹配失败
+     */
+    private static boolean patternMatching(final String string,
+                                           final String pattern,
+                                           final PatternType patternType) {
+        switch (patternType) {
+            case WILDCARD:
+                return GaStringUtils.matching(string, pattern);
+            case REGEX:
+                return string.matches(pattern);
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * 将字符串数组转换为正则表达式字符串数组
+     *
+     * @param stringArray 目标字符串数组
+     * @return 正则表达式字符串数组
+     */
+    private static String[] toRegexQuoteArray(final String[] stringArray) {
+        if (null == stringArray) {
+            return null;
+        }
+        final String[] regexQuoteArray = new String[stringArray.length];
+        for (int index = 0; index < stringArray.length; index++) {
+            regexQuoteArray[index] = quote(stringArray[index]);
+        }
+        return regexQuoteArray;
+    }
+
+
 
     /**
      * 类匹配器实现
@@ -668,6 +396,9 @@ public class EventWatchBuilder {
 
     }
 
+    /**
+     * 构建观察器
+     */
     private class BuildingForWatching implements IBuildingForWatching {
 
         private final Set<Event.Type> eventTypeSet = new HashSet<>();
@@ -1011,5 +742,280 @@ public class EventWatchBuilder {
         }
 
     }
+
+    /**
+     * 构建类匹配器
+     */
+    public interface IBuildingForClass {
+
+        /**
+         * 是否包含被Bootstrap所加载的类
+         * <p>
+         * 类似如："java.lang.String"等，都是来自BootstrapClassLoader所加载的类。
+         * 如果你需要增强他们则必须在{@code sandbox.properties}文件，将UNSAFE开关打开{@code unsafe.enable=true}
+         * </p>
+         *
+         * @return IBuildingForClass
+         */
+        IBuildingForClass includeBootstrap();
+
+        /**
+         * 是否包含被Bootstrap所加载的类
+         *
+         * @param isIncludeBootstrap TRUE:包含Bootstrap;FALSE:不包含Bootstrap;
+         * @return IBuildingForClass
+         * @see #includeBootstrap()
+         * @since {@code sandbox-api:1.0.15}
+         */
+        IBuildingForClass isIncludeBootstrap(boolean isIncludeBootstrap);
+
+        /**
+         * {@link #onClass}所指定的类，检索路径是否包含子类（实现类）
+         * <ul>
+         * <li>如果onClass()了一个接口，则匹配时会搜索这个接口的所有实现类</li>
+         * <li>如果onClass()了一个类，则匹配时会搜索这个类的所有子类</li>
+         * </ul>
+         *
+         * @return IBuildingForClass
+         */
+        IBuildingForClass includeSubClasses();
+
+        /**
+         * 是否包含被子类或实现类
+         *
+         * @param isIncludeSubClasses TRUE:包含子类（实现类）;FALSE:不包含子类（实现类）;
+         * @return IBuildingForClass
+         * @see #includeSubClasses()
+         * @since {@code sandbox-api:1.0.15}
+         */
+        IBuildingForClass isIncludeSubClasses(boolean isIncludeSubClasses);
+
+        /**
+         * 类修饰匹配
+         *
+         * @param access access flag
+         * @return IBuildingForClass
+         * @see AccessFlags
+         */
+        IBuildingForClass withAccess(int access);
+
+        /**
+         * 类是否声明实现了某一组接口
+         *
+         * @param classes 接口组类型数组
+         * @return IBuildingForClass
+         * @see #hasInterfaceTypes(String...)
+         */
+        IBuildingForClass hasInterfaceTypes(Class<?>... classes);
+
+        /**
+         * 类是否声明实现了某一组接口
+         * <p>
+         * 接口组是一个可变参数组，匹配关系为"与"。即：当前类必须同时实现接口模式匹配组的所有接口才能匹配通过
+         * </p>
+         *
+         * @param patterns 接口组匹配模版
+         * @return IBuildingForClass
+         */
+        IBuildingForClass hasInterfaceTypes(String... patterns);
+
+        /**
+         * 类是否拥有某一组标注
+         *
+         * @param classes 标注组类型数组
+         * @return IBuildingForClass
+         * @see #hasAnnotationTypes(String...)
+         */
+        IBuildingForClass hasAnnotationTypes(Class<?>... classes);
+
+        /**
+         * 类是否拥有某一组标注
+         * <p>
+         * 标注组是一个可变参数组，匹配关系为"与"。即：当前类必须同时满足所有标注匹配条件！
+         * </p>
+         *
+         * @param patterns 标注组匹配模版
+         * @return IBuildingForClass
+         */
+        IBuildingForClass hasAnnotationTypes(String... patterns);
+
+        /**
+         * 构建行为匹配器，匹配任意行为
+         * <p>
+         * 等同于{@code onBehavior("*")}
+         * </p>
+         *
+         * @return IBuildingForBehavior
+         */
+        IBuildingForBehavior onAnyBehavior();
+
+        /**
+         * 构建行为匹配器，匹配符合模版匹配名称的行为
+         *
+         * @param pattern 行为名称
+         * @return IBuildingForBehavior
+         */
+        IBuildingForBehavior onBehavior(String pattern);
+
+    }
+
+    /**
+     * 构建方法匹配器
+     */
+    public interface IBuildingForBehavior {
+
+        IBuildingForBehavior withAccess(int access);
+
+        IBuildingForBehavior withEmptyParameterTypes();
+
+        IBuildingForBehavior withParameterTypes(String... patterns);
+
+        IBuildingForBehavior withParameterTypes(Class<?>... classes);
+
+        IBuildingForBehavior hasExceptionTypes(String... patterns);
+
+        IBuildingForBehavior hasExceptionTypes(Class<?>... classes);
+
+        IBuildingForBehavior hasAnnotationTypes(String... patterns);
+
+        IBuildingForBehavior hasAnnotationTypes(Class<?>... classes);
+
+        IBuildingForBehavior onBehavior(String pattern);
+
+        IBuildingForClass onClass(String pattern);
+
+        IBuildingForClass onClass(Class<?> clazz);
+
+        IBuildingForClass onAnyClass();
+
+        IBuildingForWatching onWatching();
+
+        /**
+         * <p>兼容老版本BUGFIX</p>
+         * 在1.2.0的版本中没有考虑好老版本的API向下兼容性问题，这里做一个修复 #236
+         *
+         * @param adviceListener advice监听器
+         * @return this
+         */
+        EventWatcher onWatch(AdviceListener adviceListener);
+
+        /**
+         * 观察器
+         *
+         * @param adviceListener advice监听器
+         * @param eventTypeArray 需要被监听的事件列表（参数废弃）
+         * @return this
+         * @deprecated 根据 #256 的建议，这个接口废弃，请采用 {@link #onWatch(AdviceListener)} 代替
+         */
+        @Deprecated
+        EventWatcher onWatch(AdviceListener adviceListener, Event.Type... eventTypeArray);
+
+        EventWatcher onWatch(EventListener eventListener, Event.Type... eventTypeArray);
+
+    }
+
+    /**
+     * 构建观察构建器
+     */
+    public interface IBuildingForWatching {
+
+        /**
+         * 添加渲染进度监听器，可以添加多个
+         * <p>
+         * 用于观察{@link #onWatch(AdviceListener)}和{@link #onWatch(EventListener, Event.Type...)}的渲染进度
+         * </p>
+         *
+         * @param progress 渲染进度监听器
+         * @return IBuildingForWatching
+         */
+        IBuildingForWatching withProgress(Progress progress);
+
+        /**
+         * 观察行为内部的方法调用
+         * 调用之后，
+         * <ul>
+         * <li>{@link AdviceListener#beforeCall(Advice, int, String, String, String)}</li>
+         * <li>{@link AdviceListener#afterCallReturning(Advice, int, String, String, String)}</li>
+         * <li>{@link AdviceListener#afterCallThrowing(Advice, int, String, String, String, String)}</li>
+         * </ul>
+         * <p>
+         * 将会被触发
+         *
+         * @return IBuildingForWatching
+         */
+        IBuildingForWatching withCall();
+
+        /**
+         * 观察行为内部的行调用
+         * 调用之后，
+         * <ul>
+         * <li>{@link AdviceListener#beforeLine(Advice, int)}</li>
+         * </ul>
+         * 将会被触发
+         *
+         * @return IBuildingForWatching
+         */
+        IBuildingForWatching withLine();
+
+        /**
+         * 使用通知监听器观察
+         *
+         * @param adviceListener 通知监听器
+         * @return EventWatcher
+         */
+        EventWatcher onWatch(AdviceListener adviceListener);
+
+        /**
+         * 使用事件监听器观察
+         *
+         * @param eventListener  事件监听器
+         * @param eventTypeArray 需要监听的事件
+         * @return EventWatcher
+         */
+        EventWatcher onWatch(EventListener eventListener, Event.Type... eventTypeArray);
+
+    }
+
+    /**
+     * 构建删除观察构建器
+     */
+    public interface IBuildingForUnWatching {
+
+        /**
+         * 添加渲染进度监听器，可以添加多个
+         * <p>
+         * 用于观察{@link #onUnWatched()}方法渲染类的进度
+         * </p>
+         *
+         * @param progress 渲染进度监听器
+         * @return IBuildingForWatching
+         */
+        IBuildingForUnWatching withProgress(Progress progress);
+
+        /**
+         * 删除观察者
+         */
+        void onUnWatched();
+
+    }
+
+    /**
+     * 模版匹配模式
+     *
+     * @since {@code sandbox-api:1.1.2}
+     */
+    public enum PatternType {
+
+        /**
+         * 通配符表达式
+         */
+        WILDCARD,
+
+        /**
+         * 正则表达式
+         */
+        REGEX
+    }
+
 
 }

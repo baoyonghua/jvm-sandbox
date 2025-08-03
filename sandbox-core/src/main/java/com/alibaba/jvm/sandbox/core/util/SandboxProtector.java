@@ -18,6 +18,11 @@ public class SandboxProtector {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
+    /**
+     * Sandbox守护者单例
+     */
+    public static final SandboxProtector instance = new SandboxProtector();
+
     private final ThreadLocal<AtomicInteger> isInProtectingThreadLocal = ThreadLocal.withInitial(() -> new AtomicInteger(0));
 
     /**
@@ -79,8 +84,7 @@ public class SandboxProtector {
      * @return 被保护的目标接口实现
      */
     @SuppressWarnings("unchecked")
-    public <T> T protectProxy(final Class<T> protectTargetInterface,
-                              final T protectTarget) {
+    public <T> T protectProxy(final Class<T> protectTargetInterface, final T protectTarget) {
         // 创建一个JDK动态代理
         return (T) Proxy.newProxyInstance(
                 // SandboxClassLoader
@@ -106,11 +110,5 @@ public class SandboxProtector {
                     }
                 });
     }
-
-
-    /**
-     * Sandbox守护者单例
-     */
-    public static final SandboxProtector instance = new SandboxProtector();
 
 }

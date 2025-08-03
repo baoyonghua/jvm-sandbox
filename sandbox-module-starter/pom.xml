@@ -10,6 +10,9 @@
     </parent>
     <artifactId>sandbox-module-starter</artifactId>
     <name>sandbox-module-starter ${sandbox.version}</name>
+    <modules>
+        <module>clock-tinker</module>
+    </modules>
     <packaging>pom</packaging>
 
     <build>

@@ -23,7 +23,8 @@ import static com.alibaba.jvm.sandbox.core.util.matcher.structure.ClassStructure
 /**
  * 沙箱类形变器
  * <p>
- * 该类形变器用于增强类的字节码
+ * 该类形变器用于增强类的字节码，它实现了ClassFileTransformer接口，
+ * 因此可以通过{@link #transform(ClassLoader, String, Class, ProtectionDomain, byte[])}方法来在运行时对类进行修改
  * </p>
  *
  * @author luanjia@taobao.com

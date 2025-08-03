@@ -5,6 +5,7 @@ import com.alibaba.jvm.sandbox.core.manager.CoreLoadedClassDataSource;
 import com.alibaba.jvm.sandbox.core.util.SandboxProtector;
 import com.alibaba.jvm.sandbox.core.util.matcher.ExtFilterMatcher;
 import com.alibaba.jvm.sandbox.core.util.matcher.Matcher;
+import com.alibaba.jvm.sandbox.core.util.matcher.MatchingResult;
 import com.alibaba.jvm.sandbox.core.util.matcher.UnsupportedMatcher;
 import com.alibaba.jvm.sandbox.core.util.matcher.structure.ClassStructureFactory;
 import org.slf4j.Logger;
@@ -88,8 +89,7 @@ public class DefaultCoreLoadedClassDataSource implements CoreLoadedClassDataSour
         return find(matcher, true);
     }
 
-    private List<Class<?>> find(final Matcher matcher,
-                                final boolean isRemoveUnsupported) {
+    private List<Class<?>> find(final Matcher matcher, final boolean isRemoveUnsupported) {
 
         SandboxProtector.instance.enterProtecting();
         try {
@@ -109,17 +109,16 @@ public class DefaultCoreLoadedClassDataSource implements CoreLoadedClassDataSour
                 }
 
                 // 过滤掉对于JVM认为不可修改的类
-                if (isRemoveUnsupported
-                        && !inst.isModifiableClass(clazz)) {
+                if (isRemoveUnsupported && !inst.isModifiableClass(clazz)) {
                     // logger.debug("remove from findForReTransform, because class:{} is unModifiable", clazz.getName());
                     continue;
                 }
                 try {
                     if (isRemoveUnsupported) {
-                        if (new UnsupportedMatcher(clazz.getClassLoader(), isEnableUnsafe, isNativeSupported)
-                                .and(matcher)
-                                .matching(ClassStructureFactory.createClassStructure(clazz))
-                                .isMatched()) {
+                        Matcher andMatcher = new UnsupportedMatcher(clazz.getClassLoader(), isEnableUnsafe, isNativeSupported)
+                                .and(matcher);
+                        MatchingResult result = andMatcher.matching(ClassStructureFactory.createClassStructure(clazz));
+                        if (result.isMatched()) {
                             classes.add(clazz);
                         }
                     } else {

@@ -25,7 +25,7 @@ import static org.apache.commons.lang3.ArrayUtils.contains;
 import static org.apache.commons.lang3.StringUtils.join;
 
 /**
- * 事件处理
+ * 事件处理，它是SpyHandler的实现类
  *
  * @author luanjia@taobao.com
  */
@@ -40,6 +40,9 @@ public class EventListenerHandler implements SpyHandler {
     // 全局事件处理器ID:事件处理器映射集合
     private final Map<Integer/*LISTENER_ID*/, EventProcessor> mappingOfEventProcessor = new ConcurrentHashMap<>();
 
+    /**
+     * EventListenerHandler单例对象
+     */
     private final static EventListenerHandler singleton = new EventListenerHandler();
 
     public static EventListenerHandler getSingleton() {

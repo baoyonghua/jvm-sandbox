@@ -136,6 +136,7 @@ public class AgentLauncher {
         String token = getToken(featureMap);
         // 在当前JVM上安装（启动）jvm-sandbox
         InetSocketAddress install = install(featureMap, inst);
+        // 写入本次attach的结果
         writeAttachResult(namespace, token, install);
     }
 
@@ -249,13 +250,16 @@ public class AgentLauncher {
             // 将Spy注入到BootstrapClassLoader，也就是说通过启动类加载器去加载sandbox-spy.jar中的相关类
             // 在这里会将sandbox-spy.jar添加到BootstrapClassLoader的搜索路径中，
             // 当BootstrapClassLoader类加载器搜索类失败时，会尝试去搜索给定的Jar文件
+            // ai解释：将Spy注入到BootstrapClassLoader中，是为了让Spy能够被所有类加载器访问，
+            // 尤其是被应用程序类加载器和自定义类加载器加载的业务代码也能访问到这些Spy。
+            // 这样可以实现对JVM中所有类的无侵入和字节码增强，避免类加载器隔离带来的ClassNotFoundException等问题，保证探针功能的全局可用性和兼容性。
             inst.appendToBootstrapClassLoaderSearch(new JarFile(new File(
                     // SANDBOX_SPY_JAR_PATH
                     getSandboxSpyJarPath(home)
             )));
 
             // 构造自定义的类加载器SandboxClassLoader，尽量减少Sandbox对现有工程的侵蚀
-            // 这里的SandboxClassLoader类加载器会加载sandbox-core.jar中的类
+            // 这里的SandboxClassLoader类加载器会加载sandbox-core.jar、sandbox-api中的类库
             final ClassLoader sandboxClassLoader = loadOrDefineClassLoader(
                     namespace,
                     // SANDBOX_CORE_JAR_PATH

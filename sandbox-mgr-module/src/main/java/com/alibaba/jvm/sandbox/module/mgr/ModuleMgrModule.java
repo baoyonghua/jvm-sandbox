@@ -139,8 +139,7 @@ public class ModuleMgrModule implements Module {
 
     // @Http("/active")
     @Command("active")
-    public void active(final Map<String, String> param,
-                       final PrintWriter writer) throws ModuleException {
+    public void active(final Map<String, String> param, final PrintWriter writer) throws ModuleException {
         int total = 0;
         final String idsStringPattern = getParamWithDefault(param, "ids", EMPTY);
         for (final Module module : search(idsStringPattern)) {

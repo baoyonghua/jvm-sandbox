@@ -462,26 +462,35 @@ public class DefaultCoreModuleManager implements CoreModuleManager {
 
                 // ModuleEventWatcher对象注入
                 else if (ModuleEventWatcher.class.isAssignableFrom(fieldType)) {
-                    final ModuleEventWatcher moduleEventWatcher = coreModule.append(
-                            new ReleaseResource<ModuleEventWatcher>(
-                                    SandboxProtector.instance.protectProxy(
-                                            ModuleEventWatcher.class,
-                                            new DefaultModuleEventWatcher(inst, classDataSource, coreModule, cfg.isEnableUnsafe(), cfg.getNamespace())
-                                    )
-                            ) {
-                                @Override
-                                public void release() {
-                                    logger.info("release all SandboxClassFileTransformer for module={}", coreModule.getUniqueId());
-                                    final ModuleEventWatcher moduleEventWatcher = get();
-                                    if (null != moduleEventWatcher) {
-                                        for (final SandboxClassFileTransformer sandboxClassFileTransformer
-                                                : new ArrayList<>(coreModule.getSandboxClassFileTransformers())) {
-                                            moduleEventWatcher.delete(sandboxClassFileTransformer.getWatchId());
-                                        }
-                                    }
+                    // 在这里实际注入的其实是一个JDK代理对象，在这里使用代理的作用就是用来保护sandbox的操作所产生的事件不被响应
+                    ModuleEventWatcher eventWatchProxy = SandboxProtector.instance.protectProxy(
+                            ModuleEventWatcher.class,
+                            // ModuleEventWatcher的默认实现是 DefaultModuleEventWatcher
+                            // 可以看到 DefaultModuleEventWatcher 的构造函数中会传入Instrumentation,这说明后期对业务代码进行增强都需要依赖到这个Watch对象
+                            new DefaultModuleEventWatcher(inst, classDataSource, coreModule, cfg.isEnableUnsafe(), cfg.getNamespace())
+                    );
+                    // 构造ReleaseResource资源，即ModuleEventWatcher作为ReleaseResource是可释放的。在模块卸载时调用release方法释放资源
+                    ReleaseResource<ModuleEventWatcher> releaseResource = new ReleaseResource<ModuleEventWatcher>(eventWatchProxy) {
+                        @Override
+                        public void release() {
+                            logger.info("release all SandboxClassFileTransformer for module={}", coreModule.getUniqueId());
+                            final ModuleEventWatcher moduleEventWatcher = get();
+                            if (null != moduleEventWatcher) {
+                                // 获取当前模块所有的SandboxClassFileTransformer<类形变器，用于完成对类的增强>
+                                ArrayList<SandboxClassFileTransformer> transformers =
+                                        new ArrayList<>(coreModule.getSandboxClassFileTransformers());
+                                for (SandboxClassFileTransformer sandboxClassFileTransformer : transformers) {
+                                    // 在关闭时释放资源，包括将被增强的类进行恢复
+                                    moduleEventWatcher.delete(sandboxClassFileTransformer.getWatchId());
                                 }
-                            });
+                            }
+                        }
+                    };
+                    // 将可释放资源(在这里也就是ModuleEventWatcher)添加到CoreModule中,
+                    // 以便于后续在模块卸载时进行资源的释放，也就是调用ReleaseResource#release方法
+                    final ModuleEventWatcher moduleEventWatcher = coreModule.append(releaseResource);
 
+                    // 通过反射的方式将ModuleEventWatcher注入到目标类中
                     writeField(
                             resourceField,
                             module,
@@ -603,7 +612,8 @@ public class DefaultCoreModuleManager implements CoreModuleManager {
     final private class InnerModuleJarLoadCallback implements ModuleJarLoadCallback {
         @Override
         public void onLoad(File moduleJarFile) throws Throwable {
-            // 当一个jar文件被加载时，需要
+            // 当一个jar文件被加载时，需要调用当前所有的ModuleJarLoadingChain，
+            // 以便于对加载到的模块进行处理
             providerManager.loading(moduleJarFile);
         }
     }

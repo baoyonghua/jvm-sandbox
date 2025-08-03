@@ -91,7 +91,6 @@ class ModuleLibLoader {
                 logger.warn("loading module-jar occur error! module-jar={};", moduleJarFile, cause);
             }
         }
-
     }
 
     /**

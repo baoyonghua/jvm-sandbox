@@ -239,12 +239,12 @@ public class DefaultModuleEventWatcher implements ModuleEventWatcher {
     }
 
     @Override
-    public void delete(final int watcherId,
-                       final Progress progress) {
+    public void delete(final int watcherId, final Progress progress) {
 
         final Set<Matcher> waitingRemoveMatcherSet = new LinkedHashSet<>();
 
-        // 找出待删除的SandboxClassFileTransformer
+        // 从当前模块中所持有的SandboxClassFileTransformer集合中找出待删除的SandboxClassFileTransformer
+        // SandboxClassFileTransformer: 类形变器，用于完成对类的增强操作
         final Iterator<SandboxClassFileTransformer> cftIt = coreModule.getSandboxClassFileTransformers().iterator();
         int cCnt = 0, mCnt = 0;
         while (cftIt.hasNext()) {

@@ -7,14 +7,24 @@ import static com.alibaba.jvm.sandbox.core.util.SandboxStringUtils.getCauseMessa
 
 /**
  * 沙箱内核启动器
- * Created by luanjia@taobao.com on 16/10/2.
+ * <p>
+ * CoreLauncher 类作为 JVM-Sandbox 的启动器，由它的{@link #attachAgent(String, String, String)}方法负责 attach 到目标进程上。<br>
+ * 当成功attach到目标进程后，会触发Agent-Class {@link AgentLauncher}的agentmain方法，该方法包含了诸多操作, 包括：
+ * <li>将 sandbox-spy 包下的 Spy 类注册到 BootstrapClassLoader 中</li>
+ * <li>创建 SandboxClassLoader 加载 sandbox-core 包下的所有类（包括依赖的 sandbox-api 等）</li>
+ * <li>以及反射调用 sandbox-core 包下的 JettyCoreServer.bind()方法启动 HTTP 服务</li>
+ * </p>
  */
 public class CoreLauncher {
 
 
-    public CoreLauncher(final String targetJvmPid,
-                        final String agentJarPath,
-                        final String token) throws Exception {
+    /**
+     * @param targetJvmPid 目标JVM进程的PID
+     * @param agentJarPath sandbox-agent.jar的路径
+     * @param token        token, 用于客户端与沙箱进行通信的身份验证
+     * @throws Exception
+     */
+    public CoreLauncher(final String targetJvmPid, final String agentJarPath, final String token) throws Exception {
 
         // 加载agent
         attachAgent(targetJvmPid, agentJarPath, token);
@@ -48,10 +58,15 @@ public class CoreLauncher {
         }
     }
 
-    // 加载Agent
-    private void attachAgent(final String targetJvmPid,
-                             final String agentJarPath,
-                             final String cfg) throws Exception {
+    /**
+     * 加载Agent
+     *
+     * @param targetJvmPid 目标JVM进程的PID
+     * @param agentJarPath sandbox-agent.jar的路径
+     * @param token        token, 用于客户端与沙箱进行通信的身份验证
+     * @throws Exception
+     */
+    private void attachAgent(final String targetJvmPid, final String agentJarPath, final String cfg) throws Exception {
 
         VirtualMachine vmObj = null;
         try {
@@ -66,7 +81,6 @@ public class CoreLauncher {
                 vmObj.detach();
             }
         }
-
     }
 
 }

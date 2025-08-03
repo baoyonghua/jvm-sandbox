@@ -24,14 +24,13 @@ import java.lang.reflect.InvocationTargetException;
  */
 @MetaInfServices(Module.class)
 @Information(id = "sandbox-control", version = "0.0.3", author = "luanjia@taobao.com")
-public class ControlModule implements Module {
+public class SandboxControlModule implements Module {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     @Resource
     private ConfigInfo configInfo;
 
-    // @Http("/shutdown")
     @Command("shutdown")
     public void shutdown(final PrintWriter writer) {
 
