@@ -13,7 +13,7 @@ import java.util.Set;
  * 行为通知Advice
  * <p>
  * Advice是一个核心类，它与行为{@link Behavior}息息相关, 一个行为就对应一个Advice。<br>
- * 通知代表着一个行为{@link Behavior}的整个执行过程，随着行为的不断执行, Advice的状态会不断变化以及它的属性也会不断的进行填充
+ * 通知Advice伴随着一个行为{@link Behavior}的整个执行过程，随着行为的不断执行, Advice的状态会不断变化以及它的属性也会不断的进行填充
  * </p>
  *
  * @author luanjia@taobao.com

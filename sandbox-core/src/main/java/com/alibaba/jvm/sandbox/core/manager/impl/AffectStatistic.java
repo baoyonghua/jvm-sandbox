@@ -74,8 +74,8 @@ public class AffectStatistic {
     public void statisticAffect(final ClassLoader loader,
                                 final String internalClassName,
                                 final Set<String> behaviorSignCodes) {
-        statisticAffectClass(loader, internalClassName);
-        statisticAffectMethod(loader, behaviorSignCodes);
+        statisticAffectClass(loader, internalClassName);  // 统计影响类
+        statisticAffectMethod(loader, behaviorSignCodes);  // 统计影响方法
     }
 
 

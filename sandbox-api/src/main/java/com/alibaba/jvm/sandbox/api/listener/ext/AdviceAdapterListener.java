@@ -63,8 +63,7 @@ public class AdviceAdapterListener implements EventListener {
 
 
     // 执行事件
-    private void switchEvent(final OpStack opStack,
-                             final Event event) throws Throwable {
+    private void switchEvent(final OpStack opStack, final Event event) throws Throwable {
 
         switch (event.type) {
             // BEFORE事件: 在行为(方法)正式执行之前触发
@@ -77,7 +76,7 @@ public class AdviceAdapterListener implements EventListener {
                 if (opStack.isEmpty()) {
                     top = parent = advice;
                 }
-                // 非顶层调用, 即: 在触发该行为之前已经触发过其他行为, 因此需要从栈中获取到顶层行为和上层行为
+                // 非顶层调用, 即: 在触发该行为之前已经触发过其他行为, 因此需要从栈中获取到其顶层Advice和上层Advice
                 else {
                     parent = opStack.peek().advice;
                     top = parent.getProcessTop();

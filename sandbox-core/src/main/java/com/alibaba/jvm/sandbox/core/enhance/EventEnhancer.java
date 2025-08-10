@@ -72,6 +72,9 @@ public class EventEnhancer implements Enhancer {
 
     /**
      * 将源字节码数组转换为增强后的字节码数组
+     * <p>
+     * 会通过ASM来对字节码进行重写以完成增强。
+     * </p>
      *
      * @param targetClassLoader 目标类加载器
      * @param byteCodeArray     源字节码数组
@@ -90,12 +93,14 @@ public class EventEnhancer implements Enhancer {
             final int listenerId,
             final Event.Type[] eventTypeArray
     ) {
+        // ClassReader、ClassWriter都是ASM提供的，用于完成对字节码的读取和写入操作
         final ClassReader cr = new ClassReader(byteCodeArray);
         final ClassWriter cw = createClassWriter(targetClassLoader, cr);
         // 获取目标类加载器的Object ID
         final int targetClassLoaderObjectID = ObjectIDs.instance.identity(targetClassLoader);
 
         // 通过ASM对字节码进行增强，以便于在合适的位置进行插桩
+        // EventWeaver: 事件编织器, 用于将事件监听器的逻辑插桩到
         cr.accept(
                 new EventWeaver(ASM7, cw, namespace, listenerId,
                         targetClassLoaderObjectID,
@@ -106,7 +111,7 @@ public class EventEnhancer implements Enhancer {
                 ),
                 EXPAND_FRAMES
         );
-        // 返回增强后字节码
+        // 返回增强后字节码 -> 如果我们开启了调试模式，那么还会将增强后的字节码写入到文件中
         return dumpClassIfNecessary(cr.getClassName(), cw.toByteArray());
     }
 
@@ -123,13 +128,12 @@ public class EventEnhancer implements Enhancer {
         final File classPath = new File(dumpClassFile.getParent());
 
         // 创建类所在的包路径
-        if (!classPath.mkdirs()
-                && !classPath.exists()) {
+        if (!classPath.mkdirs() && !classPath.exists()) {
             logger.warn("create dump classpath={} failed.", classPath);
             return data;
         }
 
-        // 将类字节码写入文件
+        // 将增强后的类字节码写入到文件以便于用户进行调试
         try {
             writeByteArrayToFile(dumpClassFile, data);
             logger.info("dump {} to {} success.", className, dumpClassFile);

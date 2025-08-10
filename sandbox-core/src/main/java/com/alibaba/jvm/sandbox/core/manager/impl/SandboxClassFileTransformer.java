@@ -82,6 +82,9 @@ public class SandboxClassFileTransformer implements ClassFileTransformer {
      */
     private final boolean isNativeSupported;
 
+    /**
+     * 增强后的native方法前缀
+     */
     private final String nativePrefix;
 
     SandboxClassFileTransformer(final int watchId,
@@ -112,7 +115,7 @@ public class SandboxClassFileTransformer implements ClassFileTransformer {
      * @param classBeingRedefined 如果这是由redefine或retransform触发的，那么被redefined或retransformed的类；如果这是class load，则为 {@code null}。
      * @param protectionDomain    the protection domain of the class being defined or redefined
      * @param srcByteCodeArray    the input byte buffer in class file format - must not be modified
-     * @return
+     * @return 如果类被转换，则返回一个新的字节数组，包含转换后的类文件；如果类未被转换，则返回 {@code null}。
      */
     @Override
     public byte[] transform(
@@ -132,13 +135,13 @@ public class SandboxClassFileTransformer implements ClassFileTransformer {
                 return null;
             }
 
-            // 如果未开启unsafe开关，是不允许增强来自BootStrapClassLoader的类
+            // 如果未开启unsafe开关，是不允许增强来自BootStrapClassLoader的类，因此这里直接返回null，不进行增强
             if (!isEnableUnsafe && null == loader) {
                 logger.debug("transform ignore {}, class from bootstrap but unsafe.enable=false.", internalClassName);
                 return null;
             }
 
-            // 匹配类是否符合要求，如果一个行为(方法)都没匹配上也不用继续了
+            // 匹配当前类是否符合形变要求，如果类或者类中的一个行为(方法)都没匹配上也不用继续了，直接return null，不进行增强
             final MatchingResult result = new UnsupportedMatcher(loader, isEnableUnsafe, isNativeSupported)
                     .and(matcher)
                     .matching(getClassStructure(loader, classBeingRedefined, srcByteCodeArray));
@@ -147,15 +150,8 @@ public class SandboxClassFileTransformer implements ClassFileTransformer {
                 return null;
             }
 
-            // 找到匹配的类和方法，开始增强
-            return _transform(
-                    result,
-                    loader,
-                    internalClassName,
-                    srcByteCodeArray
-            );
-
-
+            // 【核心】开始正式增强
+            return _transform(result, loader, internalClassName, srcByteCodeArray);
         } catch (Throwable cause) {
             logger.warn("sandbox transform {} in loader={}; failed, module={} at watch={}, will ignore this transform.",
                     internalClassName,
@@ -202,12 +198,12 @@ public class SandboxClassFileTransformer implements ClassFileTransformer {
             final String internalClassName,
             final byte[] srcByteCodeArray
     ) {
-
-        // 匹配到的方法签名
+        // 通过 匹配结果MatchingResult 来获取匹配到的方法签名
         final Set<String> behaviorSignCodes = result.getBehaviorSignCodes();
 
         try {
-            // 开始进行类的增强，会基于ASM完成对字节码的增强
+            // 通过EventEnhancer#toByteCodeArray方法来进行类的增强，会基于ASM完成对字节码的增强
+            // toByteCodeArray方法会返回一个新的字节码数组
             final byte[] toByteCodeArray = new EventEnhancer(nativePrefix).toByteCodeArray(
                     loader,
                     srcByteCodeArray,

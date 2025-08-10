@@ -126,7 +126,7 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
     @Override
     public void visitEnd() {
 
-        // 代理的native方法追加到类中
+        // 将代理的native方法追加到类中
         proxyNativeAsmMethods.forEach(method -> {
             final boolean isStatic = (ACC_STATIC & method.access) != 0;
             final int access = ACC_PRIVATE | ACC_NATIVE | ACC_FINAL | (isStatic ? ACC_STATIC : 0);
@@ -166,13 +166,14 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
     /**
      * 对native方法进行重写
      * <p>
-     *     native 方法插桩策略为:
+     * native 方法插桩策略为:
      *     <ul>
      *         <li>1.原始的native变为非native方法，并增加AOP式方法体</li>
      *         <li>2.在AOP中增加调用wrapper后的native方法</li>
      *         <li>3.增加proxy的native方法</li>
      *     </ul>
      * </p>
+     *
      * @param access
      * @param name
      * @param desc
@@ -266,6 +267,16 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
         };
     }
 
+    /**
+     * 对普通方法进行重写
+     *
+     * @param access
+     * @param name
+     * @param desc
+     * @param signature
+     * @param exceptions
+     * @return
+     */
     private MethodVisitor rewriteNormalMethod(final int access, final String name, final String desc, final String signature, final String[] exceptions) {
         final MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
         return new ReWriteAdapter(api, new JSRInlinerAdapter(mv, access, name, desc, signature, exceptions), access, name, desc) {
@@ -304,17 +315,17 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
                     push(name);
                     push(desc);
                     loadThisOrPushNullIfIsStatic();
-                    // 插桩: 触发BEFORE事件
+                    // 【核心】插桩: 触发BEFORE事件，在进入方法前会插入：Spy.spyMethodOnBefore方法
                     invokeStatic(ASM_TYPE_SPY, ASM_METHOD_Spy$spyMethodOnBefore);
                     swap();
                     storeArgArray();
                     pop();
+                    // 对方法进行流程控制, 因为我们在事件监听器中可能会改变方法的执行流程，
+                    // 比如：直接抛出异常不进行原方法的调用、返回一个预定的对象不进行原方法的调用等，因此这里需要对方法的执行流程进行控制
                     processControl(desc, false);
                 });
-
                 // 标记方法体已进入
                 isMethodEnter = true;
-
             }
 
             /**
@@ -362,9 +373,7 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
 
             @Override
             protected void onMethodExit(final int opcode) {
-
                 if (!isThrow(opcode) && !getCodeLock().isLock()) {
-
                     /*
                      * 触发Return事件并执行流程变更逻辑
                      */
@@ -372,11 +381,10 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
                         loadReturn(opcode);
                         push(namespace);
                         push(listenerId);
-                        // 插桩: 触发RETURN事件
+                        // 【核心】插桩: 触发RETURN事件，在方法返回前这里会插入：Spy.spyMethodOnReturn方法
                         invokeStatic(ASM_TYPE_SPY, ASM_METHOD_Spy$spyMethodOnReturn);
                         processControl(desc, true);
                     });
-
                 }
             }
 
@@ -395,7 +403,7 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
                     loadLocal(newLocal);
                     push(namespace);
                     push(listenerId);
-                    // 插桩: 触发THROW事件
+                    // 【核心】插桩: 触发THROWS事件，在方法抛出异常前这里会插入：Spy.spyMethodOnThrows方法
                     invokeStatic(ASM_TYPE_SPY, ASM_METHOD_Spy$spyMethodOnThrows);
                     processControl(desc, false);
                     loadLocal(newLocal);
@@ -412,11 +420,12 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
             @Override
             public void visitLineNumber(final int lineNumber, Label label) {
                 if (isMethodEnter && isLineEnable) {
+                    // 如果需要对LINE事件进行通知，则进行插桩
                     getCodeLock().lock(() -> {
                         push(lineNumber);
                         push(namespace);
                         push(listenerId);
-                        // 插桩: 触发LINE事件
+                        // 【核心】插桩: 触发LINE事件，在方法抛出异常前这里会插入：Spy.spyMethodOnLine方法
                         invokeStatic(ASM_TYPE_SPY, ASM_METHOD_Spy$spyMethodOnLine);
                     });
                 }
@@ -430,8 +439,7 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
                                         final String name,
                                         final String desc,
                                         final boolean itf) {
-
-                // 如果CALL事件没有启用，则不需要对CALL进行增强
+                // 如果不需要对CALL系列事件进行通知，则不需要对方法调用进行增强
                 // 如果正在CALL的方法来自于SANDBOX本身，则不需要进行追踪
                 if (!isMethodEnter || !isCallEnable || getCodeLock().isLock()) {
                     super.visitMethodInsn(opcode, owner, name, desc, itf);
@@ -439,7 +447,7 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
                 }
 
                 if (hasCallBefore) {
-                    // 方法调用前通知
+                    // 如果需要对CALL_BEFORE事件进行通知, 则进行插桩
                     getCodeLock().lock(() -> {
                         push(tracingCurrentLineNumber);
                         push(toJavaClassName(owner));
@@ -447,7 +455,7 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
                         push(desc);
                         push(namespace);
                         push(listenerId);
-                        // 插桩: 触发BEFORE事件
+                        // 【核心】插桩: 触发CALL_BEFORE事件，在方法抛出异常前这里会插入：Spy.spyMethodOnCallBefore方法
                         invokeStatic(ASM_TYPE_SPY, ASM_METHOD_Spy$spyMethodOnCallBefore);
                     });
                 }
@@ -459,13 +467,15 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
                     getCodeLock().lock(() -> {
                         push(namespace);
                         push(listenerId);
+                        // 【核心】插桩: 触发CALL_RETURN事件，在方法抛出异常前这里会插入：Spy.spyMethodOnCallReturn方法
                         invokeStatic(ASM_TYPE_SPY, ASM_METHOD_Spy$spyMethodOnCallReturn);
                     });
                     return;
                 }
 
 
-                // 这里是需要处理拥有CALL_THROWS事件的场景
+                // 这里是需要处理拥有CALL_THROWS事件的场景, 需要对方法调用进行try...catch处理，
+                // 因此在这里需要编制下CALL_RETURN事件的逻辑以及CALL_THROWS事件的逻辑
                 final Label tracingBeginLabel = new Label();
                 final Label tracingEndLabel = new Label();
                 final Label tracingFinallyLabel = new Label();
@@ -482,6 +492,7 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
                     getCodeLock().lock(() -> {
                         push(namespace);
                         push(listenerId);
+                        // 【核心】插桩: 触发CALL_RETURN事件，在方法返回前这里会插入：Spy.spyMethodOnCallReturn方法
                         invokeStatic(ASM_TYPE_SPY, ASM_METHOD_Spy$spyMethodOnCallReturn);
                     });
                 }
@@ -498,6 +509,7 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
                     invokeVirtual(ASM_TYPE_CLASS, ASM_METHOD_Class$getName);
                     push(namespace);
                     push(listenerId);
+                    // 【核心】插桩: 触发CALL_RETURN事件，在方法抛出异常前这里会插入：Spy.spyMethodOnCallThrows方法
                     invokeStatic(ASM_TYPE_SPY, ASM_METHOD_Spy$spyMethodOnCallThrows);
                 });
 
@@ -508,7 +520,6 @@ public class EventWeaver extends ClassVisitor implements Opcodes, AsmTypes, AsmM
                 // {
                 mark(tracingFinallyLabel);
                 // }
-
             }
 
             // 用于try-catch的重排序

@@ -32,7 +32,12 @@ class EventProcessor {
      */
     final Event.Type[] eventTypes;
 
-
+    /**
+     * 事件处理器的调用过程引用
+     * <p>
+     * 它代表着一次调用过程，使用ThreadLocal来实现线程隔离
+     * </p>
+     */
     final ThreadLocal<Process> processRef = ThreadLocal.withInitial(Process::new);
 
     /**
@@ -61,13 +66,13 @@ class EventProcessor {
         // 事件工厂
         private final SingleEventFactory eventFactory = new SingleEventFactory();
 
-        // 调用堆栈
+        // 调用堆栈，用于存储每次调用的invokeId
         private final GaStack<Integer> stack = new ThreadUnsafeGaStack<>();
 
         // 是否需要忽略整个调用过程
         private boolean isIgnoreProcess = false;
 
-        // 是否来自ImmediatelyThrowsException所抛出的异常
+        // 标记当前调用过程中的异常是否来自ImmediatelyThrowsException所抛出的异常
         private boolean isExceptionFromImmediately = false;
 
         /**

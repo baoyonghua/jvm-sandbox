@@ -79,13 +79,15 @@ public class DefaultModuleEventWatcher implements ModuleEventWatcher {
         }
     }
 
-    /*
-     * 形变观察所影响的类
+
+    /**
+     * 对需要重新形变的类进行形变(增强)
+     *
+     * @param watchId                   观察ID
+     * @param waitingReTransformClasses 需要重新形变的类集合
+     * @param progress                  增强进度报告器
      */
-    private void reTransformClasses(
-        final int watchId,
-        final List<Class<?>> waitingReTransformClasses,
-        final Progress progress) {
+    private void reTransformClasses(int watchId,  List<Class<?>> waitingReTransformClasses, Progress progress) {
         // 需要形变总数
         final int total = waitingReTransformClasses.size();
 
@@ -105,10 +107,10 @@ public class DefaultModuleEventWatcher implements ModuleEventWatcher {
             try {
                 if (null != progress) {
                     try {
+                        // 汇报类形变成功, 虽然这里实际上还没有进行类的形变操作
                         progress.progressOnSuccess(waitingReTransformClass, index);
                     } catch (Throwable cause) {
-                        // 在进行进度汇报的过程中抛出异常,直接进行忽略,因为不影响形变的主体流程
-                        // 仅仅只是一个汇报作用而已
+                        // 在进行进度汇报的过程中抛出异常,直接进行忽略,因为不影响形变的主体流程，仅仅只是一个汇报作用而已
                         logger.warn("watch={} in module={} on {} report progressOnSuccess occur exception at index={};total={};",
                                 watchId, coreModule.getUniqueId(), waitingReTransformClass,
                                 index - 1, total,
@@ -116,12 +118,15 @@ public class DefaultModuleEventWatcher implements ModuleEventWatcher {
                         );
                     }
                 }
+                // 通过Instrumentation#retransformClasses(Class...)方法对类进行重新形变
+                // 该方法会调用SandboxClassFileTransformer的transform方法来完成对类的增强操作
+                // 该方法会将类的字节码重新加载到JVM，以完成对类的增强操作
                 inst.retransformClasses(waitingReTransformClass);
                 logger.info("watch={} in module={} single reTransform {} success, at index={};total={};",
                         watchId, coreModule.getUniqueId(), waitingReTransformClass,
                         index - 1, total
                 );
-            } catch (Throwable causeOfReTransform) {
+            } catch (Throwable causeOfReTransform) {  // 在类的形变过程中发生异常
                 logger.warn("watch={} in module={} single reTransform {} failed, at index={};total={}. ignore this class.",
                         watchId, coreModule.getUniqueId(), waitingReTransformClass,
                         index - 1, total,
@@ -129,6 +134,7 @@ public class DefaultModuleEventWatcher implements ModuleEventWatcher {
                 );
                 if (null != progress) {
                     try {
+                        // 汇报类形变失败
                         progress.progressOnFailed(waitingReTransformClass, index, causeOfReTransform);
                     } catch (Throwable cause) {
                         logger.warn("watch={} in module={} on {} report progressOnFailed occur exception, at index={};total={};",
@@ -139,8 +145,7 @@ public class DefaultModuleEventWatcher implements ModuleEventWatcher {
                     }
                 }
             }
-        }//for
-
+        }
     }
 
     @Override
@@ -158,6 +163,16 @@ public class DefaultModuleEventWatcher implements ModuleEventWatcher {
         return watch(new ExtFilterMatcher(make(filter)), listener, progress, eventType);
     }
 
+    /**
+     * 观察事件
+     *
+     * @param condition 事件观察条件，只有符合条件的类/方法才会被观察
+     * @param listener  事件监听器
+     *                  观察到的事件将会告知此事件监听器
+     * @param progress  观察渲染进度报告
+     * @param eventType 观察事件类型
+     * @return
+     */
     @Override
     public int watch(final EventWatchCondition condition,
                      final EventListener listener,
@@ -166,7 +181,17 @@ public class DefaultModuleEventWatcher implements ModuleEventWatcher {
         return watch(toOrGroupMatcher(condition.getOrFilterArray()), listener, progress, eventType);
     }
 
-    // 这里是用matcher重制过后的watch
+
+    /**
+     * 观察事件
+     *
+     * @param matcher   事件匹配器
+     * @param listener  事件监听器
+     *                  观察到的事件将会告知此事件监听器
+     * @param progress  观察渲染进度报告
+     * @param eventType 观察事件类型
+     * @return
+     */
     private int watch(final Matcher matcher,
                       final EventListener listener,
                       final Progress progress,
@@ -175,7 +200,8 @@ public class DefaultModuleEventWatcher implements ModuleEventWatcher {
         final String uniqueId = coreModule.getUniqueId();
         final boolean isNativeSupported = inst.isNativeMethodPrefixSupported();
 
-        // 给对应的模块追加ClassFileTransformer
+        // 给对应的模块追加 ClassFileTransformer
+        // SandboxClassFileTransformer: 类形变器，用于完成对类的增强操作
         final SandboxClassFileTransformer sandClassFileTransformer =
                 new SandboxClassFileTransformer(
                         watchId,
@@ -191,11 +217,11 @@ public class DefaultModuleEventWatcher implements ModuleEventWatcher {
         // 注册到CoreModule中
         coreModule.getSandboxClassFileTransformers().add(sandClassFileTransformer);
 
-        //这里addTransformer后，接下来引起的类加载都会经过sandClassFileTransformer
+        // 这里addTransformer后，接下来引起的类加载都会经过SandClassFileTransformer，当我们的类和方法成功匹配后，就会进行增强操作
         inst.addTransformer(sandClassFileTransformer, true);
 
-        //设定Native支持
-        if(isNativeSupported) {
+        // 设定Native支持
+        if (isNativeSupported) {
             inst.setNativeMethodPrefix(sandClassFileTransformer, sandClassFileTransformer.getNativePrefix());
             logger.debug("watch={} in module={} enable native method supported, prefix={}",
                     watchId,
@@ -203,7 +229,8 @@ public class DefaultModuleEventWatcher implements ModuleEventWatcher {
                     sandClassFileTransformer.getNativePrefix());
         }
 
-        // 查找需要渲染的类集合
+        // 通过Instrumentation#getAllLoadedClasses()方法获取当前JVM中所有已加载的类，
+        // 并通过Matcher匹配器来过滤得到当前JVM中所有符合条件的类，得到这些类之后就可以进行增强操作了
         final List<Class<?>> waitingReTransformClasses = classDataSource.findForReTransform(matcher);
         logger.info("watch={} in module={} found {} classes for watch(ing).",
                 watchId,
@@ -213,12 +240,11 @@ public class DefaultModuleEventWatcher implements ModuleEventWatcher {
 
         int cCnt = 0, mCnt = 0;
 
-        // 进度通知启动
+        // 增强进度通知启动
         beginProgress(progress, waitingReTransformClasses.size());
         try {
-
-            // 应用JVM
-            reTransformClasses(watchId,waitingReTransformClasses, progress);
+            // 应用JVM: 将当前所有等待进行增强的类进行增强操作
+            reTransformClasses(watchId, waitingReTransformClasses, progress);
             // 计数
             cCnt += sandClassFileTransformer.getAffectStatistic().cCnt();
             mCnt += sandClassFileTransformer.getAffectStatistic().mCnt();
@@ -227,8 +253,7 @@ public class DefaultModuleEventWatcher implements ModuleEventWatcher {
             // 激活增强类
             if (coreModule.isActivated()) {
                 final int listenerId = sandClassFileTransformer.getListenerId();
-                EventListenerHandler.getSingleton()
-                        .active(listenerId, listener, eventType);
+                EventListenerHandler.getSingleton().active(listenerId, listener, eventType);
             }
 
         } finally {
@@ -270,7 +295,7 @@ public class DefaultModuleEventWatcher implements ModuleEventWatcher {
             }
         }
 
-        // 查找需要删除后重新渲染的类集合
+        // 查找需要删除后重新渲染的类集合 -> 需要对类进行还原
         final List<Class<?>> waitingReTransformClasses = classDataSource.findForReTransform(
                 new GroupMatcher.Or(waitingRemoveMatcherSet.toArray(new Matcher[0]))
         );
@@ -282,7 +307,7 @@ public class DefaultModuleEventWatcher implements ModuleEventWatcher {
 
         beginProgress(progress, waitingReTransformClasses.size());
         try {
-            // 应用JVM
+            // 应用JVM：即将需要进行删除的类进行还原
             reTransformClasses(watcherId, waitingReTransformClasses, progress);
         } finally {
             finishProgress(progress, cCnt, mCnt);

@@ -194,7 +194,7 @@ public class ReWriteAdapter extends CodeLockAdapter implements Opcodes, AsmTypes
     }
 
     /**
-     * 方法流程控制
+     * 根据事件监听器的返回{@link java.com.alibaba.jvm.sandbox.spy.Spy.Ret}来进行方法流程控制
      *
      * @param desc            方法ASM描述
      * @param isPopRawRespond 是否需要弹出栈返回值

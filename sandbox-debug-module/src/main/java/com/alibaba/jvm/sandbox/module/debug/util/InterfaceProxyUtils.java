@@ -86,8 +86,7 @@ public class InterfaceProxyUtils {
      * @return 被目标接口操纵的傀儡对象实例
      */
     @SuppressWarnings("unchecked")
-    public static <T> T puppet(final Class<T> interfaceClass,
-                               final Object target) {
+    public static <T> T puppet(final Class<T> interfaceClass, final Object target) {
         return (T) Proxy.newProxyInstance(
                 interfaceClass.getClassLoader(),
                 new Class<?>[]{interfaceClass},
@@ -95,6 +94,7 @@ public class InterfaceProxyUtils {
 
                     @Override
                     public Object invoke(Object proxy, Method interfaceMethod, Object[] args) throws Throwable {
+                        // 调用目标方法
                         return getTargetMethod(interfaceMethod, target).invoke(target, args);
                     }
 
@@ -104,18 +104,57 @@ public class InterfaceProxyUtils {
 
 
     public interface MethodInterceptor {
+        /**
+         * 拦截方法调用
+         *
+         * @param methodInvocation
+         * @return
+         * @throws Throwable
+         */
         Object invoke(MethodInvocation methodInvocation) throws Throwable;
     }
 
+    /**
+     * 方法调用
+     */
     public interface MethodInvocation {
+        /**
+         * 获取方法
+         *
+         * @return
+         */
         Method getMethod();
 
+        /**
+         * 获取方法参数
+         *
+         * @return
+         */
         Object[] getArguments();
 
+        /**
+         * 调用目标方法
+         *
+         * @return
+         * @throws Throwable
+         */
         Object proceed() throws Throwable;
 
+        /**
+         * 获取目标对象
+         *
+         * @return
+         */
         Object getThis();
 
+        /**
+         * 获取一个可访问对象
+         * <p>
+         * AccessibleObject是Method、Constructor、Field等的父类，因此在这里getStaticPart方法等同于{@link #getMethod()}方法
+         * </p>
+         *
+         * @return
+         */
         AccessibleObject getStaticPart();
     }
 

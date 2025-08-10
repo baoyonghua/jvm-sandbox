@@ -163,13 +163,19 @@ public class EventWatchBuilder {
     }
 
 
-
     /**
      * 类匹配器实现
      */
     private class BuildingForClass implements IBuildingForClass {
 
+        /**
+         * 用于匹配类的Pattern，例如: "com.alibaba.*" 或 "java.util.ArrayList"
+         */
         private final String pattern;
+
+        /**
+         *
+         */
         private int withAccess = 0;
         private boolean isIncludeSubClasses = false;
         private boolean isIncludeBootstrap = false;
@@ -383,6 +389,13 @@ public class EventWatchBuilder {
             return build(new AdviceAdapterListener(adviceListener), null, BEFORE, RETURN, THROWS, IMMEDIATELY_RETURN, IMMEDIATELY_THROWS);
         }
 
+        /**
+         * 该方法已被废弃，请使用 {@link #onWatch(AdviceListener)}
+         *
+         * @param adviceListener advice监听器
+         * @param eventTypeArray 需要被监听的事件列表（参数废弃）
+         * @return
+         */
         @Deprecated
         @Override
         public EventWatcher onWatch(final AdviceListener adviceListener, Event.Type... eventTypeArray) {
@@ -400,8 +413,14 @@ public class EventWatchBuilder {
      * 构建观察器
      */
     private class BuildingForWatching implements IBuildingForWatching {
-
+        /**
+         * 当前所需要观察的事件类型
+         */
         private final Set<Event.Type> eventTypeSet = new HashSet<>();
+
+        /**
+         * 当前的进度报告器
+         */
         private final List<Progress> progresses = new ArrayList<>();
 
         @Override
@@ -428,6 +447,7 @@ public class EventWatchBuilder {
 
         @Override
         public EventWatcher onWatch(AdviceListener adviceListener) {
+            // 在这里添加默认的事件类型
             eventTypeSet.add(BEFORE);
             eventTypeSet.add(RETURN);
             eventTypeSet.add(THROWS);
@@ -449,8 +469,19 @@ public class EventWatchBuilder {
 
     private EventWatchCondition toEventWatchCondition() {
         final List<Filter> filters = new ArrayList<>();
+        // bfClasses: 需要进行匹配的类列表
         for (final BuildingForClass bfClass : bfClasses) {
+            // 构建Filter
             final Filter filter = new Filter() {
+                /**
+                 * 类过滤器
+                 * @param access                           access flag
+                 * @param javaClassName                    类名(全路径名称)
+                 * @param superClassTypeJavaClassName      父类(全路径名称)
+                 * @param interfaceTypeJavaClassNameArray  接口类型名称数组
+                 * @param annotationTypeJavaClassNameArray 标注原数据类型名称数组（注意，此参数尚未支持，只是预留一个API占位）
+                 * @return
+                 */
                 @Override
                 public boolean doClassFilter(final int access,
                                              final String javaClassName,
@@ -463,6 +494,15 @@ public class EventWatchBuilder {
                             && bfClass.hasAnnotationTypes.patternHas(annotationTypeJavaClassNameArray);
                 }
 
+                /**
+                 * 方法过滤器
+                 * @param access                           access flag
+                 * @param javaMethodName                   方法名称(包括类名称,静态方法名,普通方法名和构造函数)
+                 * @param parameterTypeJavaClassNameArray  参数类型名称数组
+                 * @param throwsTypeJavaClassNameArray     声明异常类型名称数组
+                 * @param annotationTypeJavaClassNameArray 标注原数据类型名称数组（注意，此参数尚未支持，只是预留一个API占位）
+                 * @return
+                 */
                 @Override
                 public boolean doMethodFilter(final int access,
                                               final String javaMethodName,
@@ -482,8 +522,8 @@ public class EventWatchBuilder {
                                 && bfBehavior.hasExceptionTypes.patternHas(throwsTypeJavaClassNameArray)
                                 && bfBehavior.hasAnnotationTypes.patternHas(annotationTypeJavaClassNameArray)) {
                             return true;
-                        }//if
-                    }//for
+                        }
+                    }
 
                     // non matched
                     return false;
@@ -495,8 +535,7 @@ public class EventWatchBuilder {
         return () -> filters.toArray(new Filter[0]);
     }
 
-    private Filter makeExtFilter(final Filter filter,
-                                 final BuildingForClass bfClass) {
+    private Filter makeExtFilter(final Filter filter, final BuildingForClass bfClass) {
         final ExtFilter extFilter = ExtFilter.ExtFilterFactory.make(
                 filter,
                 bfClass.isIncludeSubClasses,
@@ -506,14 +545,14 @@ public class EventWatchBuilder {
         boolean isBehaviorHasWithParameterTypes = false;
         boolean isBehaviorHasExceptionTypes = false;
         boolean isBehaviorHasAnnotationTypes = false;
-        for(final BuildingForBehavior bfBehavior : bfClass.bfBehaviors) {
-            if(!bfBehavior.withParameterTypes.isEmpty()) {
+        for (final BuildingForBehavior bfBehavior : bfClass.bfBehaviors) {
+            if (!bfBehavior.withParameterTypes.isEmpty()) {
                 isBehaviorHasWithParameterTypes = true;
             }
-            if(!bfBehavior.hasExceptionTypes.isEmpty()) {
+            if (!bfBehavior.hasExceptionTypes.isEmpty()) {
                 isBehaviorHasExceptionTypes = true;
             }
-            if(!bfBehavior.hasAnnotationTypes.isEmpty()) {
+            if (!bfBehavior.hasAnnotationTypes.isEmpty()) {
                 isBehaviorHasAnnotationTypes = true;
             }
         }
@@ -535,15 +574,23 @@ public class EventWatchBuilder {
         return new ProgressGroup(progresses);
     }
 
-    private EventWatcher build(final EventListener listener,
-                               final Progress progress,
-                               final Event.Type... eventTypes) {
-
+    /**
+     * 构造事件观察者 EventWatcher
+     * <p>
+     * EventWatcher本身并没有什么逻辑，我们可以通过事件观察者来获取本次的观察事件id
+     * </p>
+     *
+     * @param listener   事件监听器 EventListener
+     * @param progress   进度报告器。观察类是需要对类进行增强，有时候需要对大量的类进行渲染，耗时比较长。 通过这样的报告方式可以让外部感知到当前渲染的进度
+     * @param eventTypes
+     * @return
+     */
+    private EventWatcher build(final EventListener listener, final Progress progress, final Event.Type... eventTypes) {
         final int watchId = moduleEventWatcher.watch(
-                toEventWatchCondition(),
-                listener,
-                progress,
-                eventTypes
+                toEventWatchCondition(), // 构建事件观察条件, 也就是构造Filter
+                listener,  // 事件监听器
+                progress, // 进度报告器
+                eventTypes  // 需要监听的事件类型
         );
 
         return new EventWatcher() {
@@ -576,6 +623,9 @@ public class EventWatchBuilder {
      */
     private static class ProgressGroup implements Progress {
 
+        /**
+         * 组中的所有报告器
+         */
         private final List<Progress> progresses;
 
         ProgressGroup(List<Progress> progresses) {
@@ -910,6 +960,13 @@ public class EventWatchBuilder {
         @Deprecated
         EventWatcher onWatch(AdviceListener adviceListener, Event.Type... eventTypeArray);
 
+        /**
+         * 使用给定的事件监听器{@link EventListener}观察事件
+         *
+         * @param eventListener  事件观察者
+         * @param eventTypeArray 当前所需要观察的事件
+         * @return
+         */
         EventWatcher onWatch(EventListener eventListener, Event.Type... eventTypeArray);
 
     }
@@ -932,14 +989,16 @@ public class EventWatchBuilder {
 
         /**
          * 观察行为内部的方法调用
-         * 调用之后，
+         * <p>
+         * 当JVM-SANDBOX在调用完
          * <ul>
          * <li>{@link AdviceListener#beforeCall(Advice, int, String, String, String)}</li>
          * <li>{@link AdviceListener#afterCallReturning(Advice, int, String, String, String)}</li>
          * <li>{@link AdviceListener#afterCallThrowing(Advice, int, String, String, String, String)}</li>
          * </ul>
          * <p>
-         * 将会被触发
+         * 之后将会被触发
+         * </p>
          *
          * @return IBuildingForWatching
          */

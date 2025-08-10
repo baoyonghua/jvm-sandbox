@@ -112,8 +112,11 @@ class SingleEventFactory {
         if (null == immediatelyReturnEvent) {
             immediatelyReturnEvent = new ImmediatelyReturnEvent(ILLEGAL_PROCESS_ID, ILLEGAL_INVOKE_ID, null);
         }
+        // 为ImmediatelyReturnEvent#processId进行赋值
         unsafe.putInt(immediatelyReturnEvent, processIdFieldInInvokeEventOffset, processId);
+        // 为ImmediatelyReturnEvent#invokeId进行赋值
         unsafe.putInt(immediatelyReturnEvent, invokeIdFieldInInvokeEventOffset, invokeId);
+        // 为ImmediatelyReturnEvent#returnObj进行赋值
         unsafe.putObject(immediatelyReturnEvent, objectFieldInReturnEventOffset, returnObj);
         return immediatelyReturnEvent;
     }
@@ -206,7 +209,9 @@ class SingleEventFactory {
     public void returnEvent(Event event) {
         switch (event.type) {
             case BEFORE:
+                // 将BeforeEvent的target字段置为null
                 unsafe.putObject(event, targetFieldInBeforeEventOffset, null);
+                // 将BeforeEvent的argumentArray字段置为null
                 unsafe.putObject(event, argumentArrayFieldInBeforeEventOffset, null);
                 break;
             case IMMEDIATELY_THROWS:

@@ -171,7 +171,7 @@ public class ModuleHttpServlet extends HttpServlet {
 
 
     /**
-     * 匹配模块中复合HTTP请求路径的方法
+     * 匹配模块中符合HTTP请求路径的方法
      * 匹配方法的方式是：HttpMethod和HttpPath全匹配
      *
      * @param path          HTTP请求路径

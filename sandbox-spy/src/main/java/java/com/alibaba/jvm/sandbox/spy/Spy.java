@@ -25,6 +25,9 @@ public class Spy {
      */
     public static volatile boolean isSpyThrowException = false;
 
+    /**
+     * Spy映射，一个命名空间对应一个SpyHandler(具体实现为EventListenerHandler)
+     */
     private static final ConcurrentHashMap<String /* namespace */, SpyHandler> namespaceSpyHandlerMap = new ConcurrentHashMap<>();
 
     // 全局序列
@@ -49,8 +52,7 @@ public class Spy {
      * @param spyHandler 间谍处理器
      * @since {@code sandbox-spy:1.3.0}
      */
-    public static void init(final String namespace,
-                            final SpyHandler spyHandler) {
+    public static void init(final String namespace, final SpyHandler spyHandler) {
         namespaceSpyHandlerMap.putIfAbsent(namespace, spyHandler);
     }
 
@@ -88,6 +90,15 @@ public class Spy {
         }
     }
 
+    /**
+     * @param lineNumber
+     * @param owner
+     * @param name
+     * @param desc
+     * @param namespace
+     * @param listenerId
+     * @throws Throwable
+     */
     public static void spyMethodOnCallBefore(final int lineNumber,
                                              final String owner,
                                              final String name,
@@ -95,6 +106,7 @@ public class Spy {
                                              final String namespace,
                                              final int listenerId) throws Throwable {
         try {
+            // 根据namespace获取对应的SpyHandler(具体实现为EventListenerHandler)
             final SpyHandler spyHandler = namespaceSpyHandlerMap.get(namespace);
             if (null != spyHandler) {
                 spyHandler.handleOnCallBefore(listenerId, lineNumber, owner, name, desc);
@@ -143,7 +155,7 @@ public class Spy {
     }
 
     /**
-     * 在方法调用前
+     * 在方法调用前会回调此方法
      *
      * @param argumentArray
      * @param namespace
@@ -170,12 +182,16 @@ public class Spy {
         }
         final SelfCallBarrier.Node node = selfCallBarrier.enter(thread);
         try {
+            // 获取对于的SpyHandler(具体实现为EventListenerHandler)
             final SpyHandler spyHandler = namespaceSpyHandlerMap.get(namespace);
             if (null == spyHandler) {
                 return Ret.RET_NONE;
             }
+            // 调用对应的handleOnBefore方法以
             return spyHandler.handleOnBefore(
-                    listenerId, targetClassLoaderObjectID, argumentArray,
+                    listenerId,
+                    targetClassLoaderObjectID,
+                    argumentArray,
                     javaClassName,
                     javaMethodName,
                     javaMethodDesc,
@@ -344,7 +360,6 @@ public class Spy {
         }
 
         /**
-         *
          * @param thread
          * @return
          */

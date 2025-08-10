@@ -84,13 +84,25 @@ public class DefaultCoreLoadedClassDataSource implements CoreLoadedClassDataSour
         };
     }
 
+    /**
+     * 查找到当前JVM中所有需要被增强的类
+     *
+     * @param matcher 匹配器，用于找到符合条件的类
+     * @return
+     */
     @Override
     public List<Class<?>> findForReTransform(final Matcher matcher) {
         return find(matcher, true);
     }
 
+    /**
+     * 根据匹配器查找当前JVM中所有满足匹配条件的类
+     *
+     * @param matcher
+     * @param isRemoveUnsupported
+     * @return
+     */
     private List<Class<?>> find(final Matcher matcher, final boolean isRemoveUnsupported) {
-
         SandboxProtector.instance.enterProtecting();
         try {
 
@@ -98,7 +110,7 @@ public class DefaultCoreLoadedClassDataSource implements CoreLoadedClassDataSour
             if (null == matcher) {
                 return classes;
             }
-
+            // 通过Instrumentation#getAllLoadedClasses()来获取到当前JVM中所有已加载的类，并进行迭代以找到满足匹配条件的类
             final Iterator<Class<?>> itForLoaded = iteratorForLoadedClasses();
             while (itForLoaded.hasNext()) {
                 final Class<?> clazz = itForLoaded.next();

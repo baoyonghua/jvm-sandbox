@@ -7,6 +7,7 @@ import com.alibaba.jvm.sandbox.api.listener.ext.Advice;
 import com.alibaba.jvm.sandbox.api.listener.ext.AdviceListener;
 import com.alibaba.jvm.sandbox.api.listener.ext.EventWatchBuilder;
 import com.alibaba.jvm.sandbox.api.resource.ModuleEventWatcher;
+import com.alibaba.jvm.sandbox.module.debug.util.InterfaceProxyUtils;
 import com.alibaba.jvm.sandbox.module.debug.util.InterfaceProxyUtils.ProxyMethod;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -19,7 +20,6 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
-import static com.alibaba.jvm.sandbox.module.debug.util.InterfaceProxyUtils.intercept;
 import static com.alibaba.jvm.sandbox.module.debug.util.InterfaceProxyUtils.puppet;
 import static org.apache.commons.lang3.ArrayUtils.contains;
 
@@ -82,96 +82,119 @@ public class DebugLogServletAccessModule implements Module, LoadCompleted {
 
     }
 
+    /**
+     * 该方法在Module加载完成后进行调度
+     */
     @Override
     public void loadCompleted() {
         new EventWatchBuilder(moduleEventWatcher)
+                // 匹配javax.servlet.http.HttpServlet类
                 .onClass("javax.servlet.http.HttpServlet")
+                // 是否需要匹配子类
                 .includeSubClasses()
+                // 匹配service方法
                 .onBehavior("service")
+                // 需要匹配的方法的方法参数类型，这适用于重载的方法
                 .withParameterTypes(
                         "javax.servlet.http.HttpServletRequest",
                         "javax.servlet.http.HttpServletResponse"
                 )
+                // 通过onWatch方法来指定Advice监听器 AdviceListener
+                // 如果我们指定了AdviceListener，那么JVM-SANDBOX在底层会将Event转换为Advice后调用AdviceListener
+                // Advice相较于Event更加友好
                 .onWatch(new AdviceListener() {
 
+                    /**
+                     * 在方法调用之前进行通知
+                     * <p>
+                     *     在这里也就是在调用{@code HttpServlet#service}方法前进行通知
+                     * </p>
+                     * @param advice 通知信息
+                     * @throws Throwable
+                     */
                     @Override
                     protected void before(Advice advice) throws Throwable {
-
-
-                        // 只关心顶层调用
                         if (!advice.isProcessTop()) {
-                            return;
+                            return; // 对于这个场景，我们只关心顶层调用
                         }
-
+                        // HttpAccess代表着一次HTTP访问，在HttpAccess中记录了访问的起始时间、来源IP、HTTP方法、URI、参数Map等信息
                         final HttpAccess httpAccess = wrapperHttpAccess(advice);
-
                         // 附加到advice上，以便在onReturning()和onThrowing()中取出
                         advice.attach(httpAccess);
-
+                        // advice.getBehavior() -> 获取触发当前事件的行为，在这里的行为也就是service方法
                         final Class<?> classOfHttpServletResponse = advice.getBehavior()
                                 .getDeclaringClass()
                                 .getClassLoader()
                                 .loadClass("javax.servlet.http.HttpServletResponse");
 
-                        // 替换HttpServletResponse参数
-                        advice.changeParameter(1, intercept(
-                                classOfHttpServletResponse,
-                                advice.getTarget().getClass().getClassLoader(),
-                                advice.getParameterArray()[1],
-                                methodInvocation -> {
-                                    if (contains(
-                                            new String[]{
-                                                    "setStatus",
-                                                    "sendError"
-                                            },
-                                            methodInvocation.getMethod().getName())) {
-                                        httpAccess.setStatus((Integer) methodInvocation.getArguments()[0]);
-                                    }
-                                    return methodInvocation.proceed();
-                                }));
-
+                        // 通过Advice#changeParamter()方法来改变方法的入参，
+                        // 在这里也就是替换service方法的第2个参数HttpServletResponse为一个JDK代理对象
+                        advice.changeParameter(
+                                1,
+                                // InterfaceProxyUtils.intercept: 创建一个JDK动态代理对象，该代理对象的作用就是拦截方法的调用
+                                InterfaceProxyUtils.intercept(
+                                        classOfHttpServletResponse,  // 目标接口
+                                        advice.getTarget().getClass().getClassLoader(), // 目标类的类加载器
+                                        advice.getParameterArray()[1],  // 目标实例，在这里也就是HttpServletResponse实例
+                                        // 拦截方法调用
+                                        methodInvocation -> {
+                                            // 如果调用的方法为setStatus、sendError则变更HttpAccess对象的状态<例如：400、500、...>
+                                            String methodName = methodInvocation.getMethod().getName();
+                                            String[] expected = {"setStatus", "sendError"};
+                                            if (contains(expected, methodName)) {
+                                                httpAccess.setStatus((Integer) methodInvocation.getArguments()[0]);
+                                            }
+                                            // 调用目标方法
+                                            return methodInvocation.proceed();
+                                        }));
                     }
 
+                    /**
+                     * 在方法调用返回后进行通知
+                     * <p>
+                     *     在这里也就是在调用{@code HttpServlet#service}方法返回后进行通知
+                     * </p>
+                     * @param advice 通知信息
+                     */
                     @Override
                     protected void afterReturning(Advice advice) {
                         // 只关心顶层调用
                         if (!advice.isProcessTop()) {
                             return;
                         }
-
+                        // 获取attach在Advice上的附件，这里的附件是在 AdviceListener#before 方法中进行attach的
                         final HttpAccess httpAccess = advice.attachment();
                         if (null == httpAccess) {
                             return;
                         }
-
-                        logAccess(
-                                httpAccess,
-                                System.currentTimeMillis() - httpAccess.beginTimestamp,
-                                null
-                        );
+                        // 记录HTTP访问日志
+                        long cost = System.currentTimeMillis() - httpAccess.beginTimestamp;
+                        logAccess(httpAccess, cost, null);
                     }
 
+                    /**
+                     * 在方法抛出异常后进行通知
+                     * <p>
+                     *     在这里也就是在调用{@code HttpServlet#service}方法抛出异常后进行通知
+                     * </p>
+                     * @param advice 通知信息
+                     */
                     @Override
                     protected void afterThrowing(Advice advice) {
                         // 只关心顶层调用
                         if (!advice.isProcessTop()) {
                             return;
                         }
-
+                        // 获取attach在Advice上的附件，这里的附件是在 AdviceListener#before 方法中进行attach的
                         final HttpAccess httpAccess = advice.attachment();
                         if (null == httpAccess) {
                             return;
                         }
-
-                        logAccess(
-                                httpAccess,
-                                System.currentTimeMillis() - httpAccess.beginTimestamp,
-                                advice.getThrowable()
-                        );
+                        // 记录HTTP访问日志
+                        long cost = System.currentTimeMillis() - httpAccess.beginTimestamp;
+                        logAccess(httpAccess, cost, advice.getThrowable());
                     }
-
                 });
-
     }
 
     /**
@@ -188,7 +211,8 @@ public class DebugLogServletAccessModule implements Module, LoadCompleted {
         // 俘虏HttpServletRequest参数为傀儡
         final IHttpServletRequest httpServletRequest = puppet(
                 IHttpServletRequest.class,
-                advice.getParameterArray()[0]);
+                advice.getParameterArray()[0]  // HttpServletRequest
+        );
 
         // 初始化HttpAccess
         return new HttpAccess(
@@ -233,5 +257,4 @@ public class DebugLogServletAccessModule implements Module, LoadCompleted {
                 cause
         );
     }
-
 }

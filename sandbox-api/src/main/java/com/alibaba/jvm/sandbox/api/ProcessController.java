@@ -18,8 +18,18 @@ import static com.alibaba.jvm.sandbox.api.ProcessControlException.throwThrowsImm
  */
 public final class ProcessController {
 
+    private static final ProcessControlException noneImmediatelyException
+            = new ProcessControlException(NONE_IMMEDIATELY, null);
+
+    private static final ProcessControlException noneImmediatelyWithIgnoreProcessEventException
+            = new ProcessControlException(true, NONE_IMMEDIATELY, null);
+
     /**
      * 中断当前代码处理流程,并立即返回指定对象
+     * <p>
+     * 在底层也是通过抛出一个{@link ProcessControlException}来实现的，也就是抛出一个异常来中断当前代码处理流程，
+     * 但是在这个异常中会携带着我们需要返回的对象，以便于在后续的事件处理器中可以获取到这个对象。
+     * </p>
      *
      * @param object 返回对象
      * @throws ProcessControlException 抛出立即返回流程控制异常
@@ -59,12 +69,6 @@ public final class ProcessController {
     public static void throwsImmediatelyWithIgnoreProcessEvent(final Throwable throwable) throws ProcessControlException {
         throw new ProcessControlException(true, THROWS_IMMEDIATELY, throwable);
     }
-
-    private static final ProcessControlException noneImmediatelyException
-            = new ProcessControlException(NONE_IMMEDIATELY, null);
-
-    private static final ProcessControlException noneImmediatelyWithIgnoreProcessEventException
-            = new ProcessControlException(true, NONE_IMMEDIATELY, null);
 
     /**
      * 不干预当前处理流程

@@ -32,16 +32,21 @@ public class DebugLogExceptionModule implements Module, LoadCompleted {
     @Override
     public void loadCompleted() {
         new EventWatchBuilder(moduleEventWatcher)
+                // 匹配特定的类，在这里需要进行匹配的类是: java.lang.Exception
                 .onClass(Exception.class)
+                // 是否需要包含被引导类加载器所加载的类，由于我们这里匹配的类是Exception, 自然需要包含
                 .includeBootstrap()
+                // 匹配特定的行为<方法>, 在这里我们需要进行匹配的方法是<init>方法，也就是Exception类的构造器
                 .onBehavior("<init>")
+                // 通过onWatch方法来指定事件监听器 EventListener, 并指定当前需要观察的事件
+                // 当后续事件触发后，会回调此监听器的onWatch方法，以完成对事件的处理
                 .onWatch(event -> {
                     final BeforeEvent bEvent = (BeforeEvent) event;
+                    // 在这里的EventListener的处理逻辑中，只是简单打印了下日志信息
                     exLogger.info("{} occur an exception: {}",
                             getJavaClassName(bEvent.target.getClass()),
                             bEvent.target
                     );
                 }, BEFORE);
     }
-
 }
