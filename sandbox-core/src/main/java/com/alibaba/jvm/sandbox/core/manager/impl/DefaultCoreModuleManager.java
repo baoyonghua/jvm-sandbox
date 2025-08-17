@@ -795,7 +795,7 @@ public class DefaultCoreModuleManager implements CoreModuleManager {
         // 等待卸载的模块集合
         final Collection<CoreModule> waitingUnloadCoreModules = new ArrayList<>();
 
-        // 找出所有USER的模块，所以这些模块都卸载了
+        // 找出所有USER的模块，所有这些模块都需要进行卸载
         for (final CoreModule coreModule : loadedModuleBOMap.values()) {
             // 如果判断是属于USER模块目录下的模块，则加入到待卸载模块集合，稍后统一进行卸载
             if (!isSystemModule(coreModule.getJarFile())) {

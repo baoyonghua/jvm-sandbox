@@ -125,7 +125,8 @@ public class ModuleMgrModule implements Module {
                        final PrintWriter writer) {
         int total = 0;
         final String idsStringPattern = getParamWithDefault(param, "ids", EMPTY);
-        for (final Module module : search(idsStringPattern)) {
+        Collection<Module> modules = search(idsStringPattern);
+        for (final Module module : modules) {
             final Information info = module.getClass().getAnnotation(Information.class);
             try {
                 moduleManager.unload(info.id());
